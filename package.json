@@ -1,8 +1,8 @@
 {
-  "name": "enotaryo",
-  "version": "0.1.0",
+  "name": "juriseasy",
+  "version": "0.2.0",
   "private": true,
-  "description": "eNotaryo — compliant electronic notarization for Philippine lawyers (A.M. No. 24-10-14-SC).",
+  "description": "JurisEasy — Digital notary for Philippine lawyers (compliant with A.M. No. 24-10-14-SC).",
   "scripts": {
     "build": "node scripts/build-config.js",
     "dev": "npx serve -l 3000 .",

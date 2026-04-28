@@ -1,6 +1,6 @@
 // /js/app.js
-// Wires the existing eNotaryo UI to Supabase. Keeps the original DOM
-// structure unchanged — only swaps the inline mock-data logic.
+// Wires the JurisEasy UI to Supabase. Keeps DOM structure stable —
+// drives view routing, forms, wizard, and live data rendering.
 
 import {
   signIn, signUp, signOut, onAuthStateChange,
@@ -10,17 +10,20 @@ import { uploadPdf, getSignedUrl } from './storage.js';
 import { listEntries, createEntry, getEntryStats } from './register.js';
 import { queueEmails, listQueue, countQueued } from './emailQueue.js';
 import { extractDocumentMetadata } from './ocr.js';
-import { logAudit } from './audit.js';
+import { logAudit, listAuditLogs } from './audit.js';
 
 // ----------------- App-level state -----------------
 const state = {
-  profile: null,           // lawyers row
+  profile: null,
   wizard: {
     file: null,
-    document: null,        // documents row from upload
-    extracted: null,       // ExtractedMetadata
-    createdEntry: null,    // register_entries row (after step 3)
+    document: null,
+    extracted: null,
+    createdEntry: null,
     signedUrl: null
+  },
+  cache: {
+    auditLogs: []
   }
 };
 
@@ -44,67 +47,56 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 function bindStaticHandlers() {
   // Login form
-  const loginBtn = document.getElementById('btn-login');
-  if (loginBtn) loginBtn.addEventListener('click', handleLogin);
+  on('btn-login', 'click', handleLogin);
+  on('btn-show-signup', 'click', () => toggleAuthMode('signup'));
+  on('btn-show-login', 'click', () => toggleAuthMode('login'));
+  on('btn-signup', 'click', handleSignup);
 
-  const signupToggle = document.getElementById('btn-show-signup');
-  if (signupToggle) signupToggle.addEventListener('click', () => toggleAuthMode('signup'));
-
-  const loginToggle = document.getElementById('btn-show-login');
-  if (loginToggle) loginToggle.addEventListener('click', () => toggleAuthMode('login'));
-
-  const signupBtn = document.getElementById('btn-signup');
-  if (signupBtn) signupBtn.addEventListener('click', handleSignup);
-
-  // Sidebar nav
+  // Sidebar nav (and any data-view button anywhere)
   document.querySelectorAll('[data-view]').forEach(btn => {
     btn.addEventListener('click', () => setView(btn.dataset.view));
   });
 
   // Sign out
-  const signoutBtn = document.getElementById('btn-signout');
-  if (signoutBtn) signoutBtn.addEventListener('click', handleSignout);
+  on('btn-signout', 'click', handleSignout);
 
   // File input + samples
-  const fileInput = document.getElementById('file-input');
-  if (fileInput) fileInput.addEventListener('change', onFileSelected);
-
+  on('file-input', 'change', onFileSelected);
   document.querySelectorAll('[data-sample]').forEach(btn => {
     btn.addEventListener('click', () => onSampleClicked(btn.dataset.sample));
   });
 
-  // Wizard buttons
+  // Wizard
   document.querySelectorAll('[data-wiz-back]').forEach(btn => {
     btn.addEventListener('click', () => goToStep(Number(btn.dataset.wizBack)));
   });
   document.querySelectorAll('[data-wiz-next]').forEach(btn => {
     btn.addEventListener('click', () => goToStep(Number(btn.dataset.wizNext)));
   });
-
-  const commitBtn = document.getElementById('btn-commit-register');
-  if (commitBtn) commitBtn.addEventListener('click', handleCommitRegister);
-
-  const sendNowBtn = document.getElementById('btn-send-now');
-  if (sendNowBtn) sendNowBtn.addEventListener('click', () => handleDispatch('send'));
-
-  const queueBtn = document.getElementById('btn-queue-batch');
-  if (queueBtn) queueBtn.addEventListener('click', () => handleDispatch('queue'));
-
-  const newAnotherBtn = document.getElementById('btn-new-another');
-  if (newAnotherBtn) newAnotherBtn.addEventListener('click', () => { resetWizard(); setView('new'); });
+  on('btn-commit-register', 'click', handleCommitRegister);
+  on('btn-send-now', 'click', () => handleDispatch('send'));
+  on('btn-queue-batch', 'click', () => handleDispatch('queue'));
+  on('btn-new-another', 'click', () => { resetWizard(); setView('new'); });
 
   // Register filters
   ['reg-search', 'reg-filter-type', 'reg-filter-month'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener('input', () => renderRegister());
+    on(id, 'input', () => renderRegister());
   });
+  on('btn-export-csv', 'click', handleExportCsv);
 
-  const exportBtn = document.getElementById('btn-export-register');
-  if (exportBtn) exportBtn.addEventListener('click', () => toast('PDF/A export coming soon — entries are persisted in your Supabase project.'));
+  // Outbox
+  on('btn-send-all-queued', 'click', handleSendAllQueued);
+
+  // Audit
+  on('audit-filter', 'input', () => renderAuditList());
 
   // Settings
-  const saveSettingsBtn = document.getElementById('btn-save-settings');
-  if (saveSettingsBtn) saveSettingsBtn.addEventListener('click', handleSaveSettings);
+  on('btn-save-settings', 'click', handleSaveSettings);
+}
+
+function on(id, evt, fn) {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener(evt, fn);
 }
 
 // =============================================================
@@ -180,24 +172,24 @@ function setView(view) {
   const target = document.getElementById('view-' + view);
   if (target) target.classList.remove('hidden');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  const btn = document.querySelector(`[data-view="${view}"]`);
+  const btn = document.querySelector(`aside [data-view="${view}"]`);
   if (btn) btn.classList.add('active');
 
   if (view === 'dashboard') renderDashboard();
   if (view === 'register') renderRegister();
   if (view === 'outbox') renderOutbox();
   if (view === 'new') resetWizard();
+  if (view === 'audit') renderAudit();
   if (view === 'settings') renderSettings();
   window.scrollTo({ top: 0, behavior: 'instant' });
 }
 
 function renderProfileChrome() {
   const p = state.profile || {};
-  const initials = (p.full_name || p.email || '?').split(' ').map(s => s[0]).slice(0,2).join('').toUpperCase();
-  setText('profile-initials', initials);
+  const initials = (p.full_name || p.email || '?').split(' ').filter(Boolean).map(s => s[0]).slice(0,2).join('').toUpperCase();
+  setText('profile-initials', initials || '—');
   setText('profile-name', p.full_name || p.email || '');
-  const meta = [p.roll_number ? `Roll No. ${p.roll_number}` : null, p.jurisdiction].filter(Boolean).join(' · ');
-  setText('profile-meta', meta || '—');
+  setText('profile-meta', 'Notary Public');
 }
 
 // =============================================================
@@ -208,8 +200,11 @@ async function renderDashboard() {
     weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
   }));
 
-  const greetingName = (state.profile?.full_name || '').split(' ')[0] || 'Counsel';
-  setText('greeting', `Good day, Atty. ${greetingName}.`);
+  const fullName = state.profile?.full_name || '';
+  // Pull a friendly first name. If they used "Atty. Juan dela Cruz" → "Juan".
+  const cleaned = fullName.replace(/^(Atty\.?|Attorney|Hon\.?)\s+/i, '').trim();
+  const greetingName = cleaned ? cleaned.split(' ')[0] : 'Counsel';
+  setText('greeting-name', `Atty. ${greetingName}`);
 
   try {
     const stats = await getEntryStats();
@@ -217,18 +212,25 @@ async function renderDashboard() {
     setText('kpi-month', stats?.month ?? 0);
     setText('kpi-pending', stats?.pendingDispatch ?? 0);
 
+    const auditLogs = await listAuditLogs({ limit: 200 }).catch(() => []);
+    state.cache.auditLogs = auditLogs;
+    setText('kpi-audit', auditLogs.length);
+
     const recent = await listEntries();
     const top5 = recent.slice(0, 5);
     const ra = document.getElementById('recent-activity');
     if (ra) {
       if (top5.length === 0) {
-        ra.innerHTML = `<div class="px-5 py-8 text-center text-sm text-ink-500">
-          No notarizations yet. Click <strong>New Notarization</strong> to log your first entry.
+        ra.innerHTML = `<div class="px-5 py-10 text-center">
+          <div class="text-sm text-ink-500">No notarizations yet.</div>
+          <button data-view="new" class="mt-3 text-sm text-violet-600 hover:text-violet-700 font-medium">Notarize your first document →</button>
         </div>`;
+        // re-bind data-view click for the inserted button
+        ra.querySelector('[data-view]')?.addEventListener('click', e => setView(e.currentTarget.dataset.view));
       } else {
         ra.innerHTML = top5.map(r => `
-          <div class="px-5 py-3 flex items-center gap-4 hover:bg-ink-50 transition">
-            <div class="w-9 h-9 rounded-lg bg-gold-50 text-gold-700 flex items-center justify-center font-mono text-xs">${pad3(r.doc_no)}</div>
+          <div class="px-5 py-3 flex items-center gap-4 hover:bg-violet-50 transition">
+            <div class="w-10 h-10 rounded-lg bg-violet-100 text-violet-700 flex items-center justify-center mono text-xs font-medium">${pad3(r.doc_no)}</div>
             <div class="flex-1 min-w-0">
               <div class="text-sm font-medium truncate">${escapeHtml(r.document_type)}</div>
               <div class="text-xs text-ink-500 truncate">${escapeHtml(r.principal)} · ₱${Number(r.fee).toFixed(2)}</div>
@@ -248,9 +250,9 @@ async function renderDashboard() {
 }
 
 function pillForStatus(status) {
-  if (status === 'dispatched') return '<span class="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full font-medium">Sent</span>';
-  if (status === 'queued')     return '<span class="text-[10px] bg-gold-100 text-gold-700 px-2 py-1 rounded-full font-medium">Queued</span>';
-  return '<span class="text-[10px] bg-ink-100 text-ink-700 px-2 py-1 rounded-full font-medium">Logged</span>';
+  if (status === 'dispatched' || status === 'sent') return '<span class="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full font-medium uppercase tracking-wide">Sent</span>';
+  if (status === 'queued')    return '<span class="text-[10px] bg-amber-100 text-amber-800 px-2 py-1 rounded-full font-medium uppercase tracking-wide">Queued</span>';
+  return '<span class="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full font-medium uppercase tracking-wide">Logged</span>';
 }
 
 // =============================================================
@@ -289,7 +291,6 @@ async function onFileSelected(e) {
 }
 
 async function onSampleClicked(idx) {
-  // Build a tiny pseudo-PDF blob locally so we have a real file to upload.
   const fakeName = ['affidavit_of_loss.pdf', 'deed_of_sale.pdf', 'spa.pdf'][idx] || 'sample.pdf';
   const blob = new Blob([new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2D])], { type: 'application/pdf' });
   const file = new File([blob], fakeName, { type: 'application/pdf' });
@@ -297,7 +298,6 @@ async function onSampleClicked(idx) {
 }
 
 async function runUploadAndExtract(file) {
-  // Switch to step 2 immediately to show scanning UI
   document.getElementById('wiz-step-1').classList.add('hidden');
   document.getElementById('wiz-step-2').classList.remove('hidden');
   setStepperState(2);
@@ -307,8 +307,6 @@ async function runUploadAndExtract(file) {
   state.wizard.file = file;
 
   try {
-    // Upload + OCR in parallel. Avoid naming a local `document` here —
-    // it would shadow the global DOM document object.
     const [uploadResult, extracted] = await Promise.all([
       uploadPdf(file),
       extractDocumentMetadata(file)
@@ -349,7 +347,7 @@ function populateExtractedFields(ex) {
   const eBox = document.getElementById('ext-emails');
   if (eBox) {
     const emails = [ex.principal_email, ...(ex.cc_emails || []), state.profile?.ocs_email].filter(Boolean);
-    eBox.innerHTML = emails.map(e => `<span class="text-xs bg-ink-100 text-ink-700 px-2 py-1 rounded-full">${escapeHtml(e)}</span>`).join('');
+    eBox.innerHTML = emails.map(e => `<span class="text-xs bg-violet-50 text-violet-700 px-2 py-1 rounded-full font-medium">${escapeHtml(e)}</span>`).join('');
   }
 }
 
@@ -363,7 +361,6 @@ function paintPreview(ex) {
 async function handleCommitRegister() {
   const ex = state.wizard.extracted;
   if (!ex) return;
-  // Read possibly-edited fields
   ex.document_type = readVal('ext-type', ex.document_type);
   ex.notarial_act = readVal('ext-act', ex.notarial_act);
   ex.notarization_date = readVal('ext-date', ex.notarization_date);
@@ -430,16 +427,16 @@ function paintDispatchEmails(entry, ex) {
   wrap.innerHTML = emails.map((e, i) => `
     <details class="border border-ink-100 rounded-lg" ${i === 0 ? 'open' : ''}>
       <summary class="p-4 flex items-center gap-3">
-        <div class="w-8 h-8 rounded-full bg-ink-100 flex items-center justify-center text-xs font-medium text-ink-700">${initialsOf(e.who)}</div>
+        <div class="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center text-xs font-medium text-violet-700">${initialsOf(e.who)}</div>
         <div class="flex-1 min-w-0">
           <div class="text-sm font-medium truncate">${escapeHtml(e.subject)}</div>
           <div class="text-xs text-ink-500 truncate">To: ${escapeHtml(e.to)}</div>
         </div>
-        <span class="text-xs bg-gold-100 text-gold-700 px-2 py-1 rounded-full font-medium">Auto-drafted</span>
+        <span class="text-xs bg-violet-100 text-violet-700 px-2 py-1 rounded-full font-medium">Auto-drafted</span>
       </summary>
       <div class="px-4 pb-4 border-t border-ink-100 pt-3 text-sm">
         <textarea data-email-body="${i}" class="w-full p-3 border border-ink-200 rounded-lg text-sm font-sans" rows="9">${escapeHtml(e.body)}</textarea>
-        <div class="flex items-center gap-2 mt-2 text-xs text-ink-500">Attached: <code>${escapeHtml(entry.filename)}</code></div>
+        <div class="flex items-center gap-2 mt-2 text-xs text-ink-500">Attached: <code class="mono">${escapeHtml(entry.filename)}</code></div>
       </div>
     </details>
   `).join('');
@@ -450,7 +447,6 @@ async function handleDispatch(mode) {
   const plan = state.wizard.dispatchPlan;
   if (!entry || !plan) return;
 
-  // pick up edited bodies
   document.querySelectorAll('[data-email-body]').forEach(t => {
     const i = Number(t.dataset.emailBody);
     if (plan[i]) plan[i].body = t.value;
@@ -496,29 +492,61 @@ async function renderRegister() {
   const type = document.getElementById('reg-filter-type')?.value || '';
   const month = document.getElementById('reg-filter-month')?.value || '';
   const tbody = document.getElementById('register-tbody');
+  const empty = document.getElementById('register-empty');
+  const tableEl = tbody?.closest('table');
+  const countEl = document.getElementById('register-count');
   if (!tbody) return;
   try {
     const rows = await listEntries({ search, type, month });
+    state.cache.registerRows = rows;
     if (rows.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8" class="text-center py-12 text-ink-500 text-sm">No entries match.</td></tr>`;
-      return;
+      tbody.innerHTML = '';
+      tableEl?.classList.add('hidden');
+      empty?.classList.remove('hidden');
+      if (countEl) countEl.textContent = 'No entries.';
+    } else {
+      tableEl?.classList.remove('hidden');
+      empty?.classList.add('hidden');
+      tbody.innerHTML = rows.map(r => `
+        <tr class="hover:bg-violet-50 transition">
+          <td class="px-4 py-3 mono text-xs text-violet-700 font-semibold">${r.series_year}-${pad3(r.doc_no)}</td>
+          <td class="px-4 py-3 text-ink-600">${formatShort(r.notarization_date)}</td>
+          <td class="px-4 py-3">${escapeHtml(r.document_type)}</td>
+          <td class="px-4 py-3 text-ink-700">${escapeHtml(r.principal)}</td>
+          <td class="px-4 py-3 text-ink-500">${r.page_no}</td>
+          <td class="px-4 py-3 text-right font-medium">₱${Number(r.fee).toFixed(2)}</td>
+          <td class="px-4 py-3">${pillForStatus(r.status)}</td>
+          <td class="px-4 py-3 text-right"><span class="text-xs text-ink-500">${escapeHtml(r.book_no)} · ${r.series_year}</span></td>
+        </tr>
+      `).join('');
+      if (countEl) countEl.textContent = `Showing ${rows.length} of ${rows.length} entries`;
     }
-    tbody.innerHTML = rows.map(r => `
-      <tr class="hover:bg-ink-50">
-        <td class="px-4 py-3 font-mono text-xs">${pad3(r.doc_no)}</td>
-        <td class="px-4 py-3 text-ink-600">${r.notarization_date}</td>
-        <td class="px-4 py-3">${escapeHtml(r.document_type)}</td>
-        <td class="px-4 py-3 text-ink-700">${escapeHtml(r.principal)}</td>
-        <td class="px-4 py-3 text-ink-500">${r.page_no}</td>
-        <td class="px-4 py-3 text-right font-medium">₱${Number(r.fee).toFixed(2)}</td>
-        <td class="px-4 py-3">${pillForStatus(r.status)}</td>
-        <td class="px-4 py-3 text-right"><span class="text-xs text-ink-400">${escapeHtml(r.book_no)} · ${r.series_year}</span></td>
-      </tr>
-    `).join('');
   } catch (e) {
     console.error(e);
     tbody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-rose-600 text-sm">Failed to load: ${escapeHtml(e.message || '')}</td></tr>`;
   }
+}
+
+function handleExportCsv() {
+  const rows = state.cache.registerRows || [];
+  if (!rows.length) {
+    toast('Nothing to export — register is empty.');
+    return;
+  }
+  const headers = ['Doc No.','Page','Book','Series','Date','Document Type','Notarial Act','Principal','Principal Email','Fee','Status','Filename'];
+  const escapeCsv = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const lines = [headers.join(',')].concat(rows.map(r => [
+    `${r.series_year}-${pad3(r.doc_no)}`, r.page_no, r.book_no, r.series_year,
+    r.notarization_date, r.document_type, r.notarial_act, r.principal,
+    r.principal_email, r.fee, r.status, r.filename
+  ].map(escapeCsv).join(',')));
+  const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `JurisEasy-NotarialRegister-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast(`Exported ${rows.length} entries.`);
 }
 
 // =============================================================
@@ -526,31 +554,100 @@ async function renderRegister() {
 // =============================================================
 async function renderOutbox() {
   const wrap = document.getElementById('outbox-list');
+  const empty = document.getElementById('outbox-empty');
+  const sendAll = document.getElementById('btn-send-all-queued');
+  const queuedPill = document.getElementById('outbox-queued-pill');
   if (!wrap) return;
   try {
     const rows = await listQueue();
+    state.cache.outboxRows = rows;
+
     if (rows.length === 0) {
-      wrap.innerHTML = `<div class="bg-white border border-ink-100 rounded-xl p-8 text-center text-sm text-ink-500">No outbound emails yet.</div>`;
+      wrap.innerHTML = '';
+      empty?.classList.remove('hidden');
+      sendAll?.classList.add('hidden');
+      queuedPill?.classList.add('hidden');
       return;
     }
-    wrap.innerHTML = rows.map(e => `
-      <div class="bg-white border border-ink-100 rounded-xl p-5">
-        <div class="flex items-start gap-3">
-          <div class="w-10 h-10 rounded-lg bg-${e.status==='sent'?'emerald':'gold'}-100 text-${e.status==='sent'?'emerald':'gold'}-700 flex items-center justify-center text-xs font-semibold uppercase">${e.status[0]}</div>
+    empty?.classList.add('hidden');
+
+    const queuedCount = rows.filter(r => r.status === 'queued').length;
+    if (queuedCount > 0) {
+      sendAll?.classList.remove('hidden');
+      if (queuedPill) {
+        queuedPill.textContent = `${queuedCount} queued`;
+        queuedPill.classList.remove('hidden');
+      }
+    } else {
+      sendAll?.classList.add('hidden');
+      queuedPill?.classList.add('hidden');
+    }
+
+    wrap.innerHTML = rows.map(e => {
+      const isQueued = e.status === 'queued';
+      const isSent = e.status === 'sent' || e.status === 'dispatched';
+      const dotClass = isSent ? 'bg-emerald-500' : isQueued ? 'bg-violet-500' : 'bg-ink-300';
+      const statusBadge = isSent
+        ? '<span class="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-semibold uppercase tracking-wide">Sent</span>'
+        : isQueued
+        ? '<span class="text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-semibold uppercase tracking-wide">Queued</span>'
+        : `<span class="text-[10px] bg-ink-100 text-ink-700 px-2 py-0.5 rounded font-semibold uppercase tracking-wide">${escapeHtml(e.status)}</span>`;
+
+      return `
+        <div class="bg-white border border-ink-100 rounded-xl p-5 flex items-start gap-4">
+          <div class="w-2.5 h-2.5 rounded-full ${dotClass} mt-2 shrink-0"></div>
           <div class="flex-1 min-w-0">
-            <div class="flex items-baseline gap-2">
-              <div class="text-sm font-medium truncate">${escapeHtml(e.subject)}</div>
-              <span class="text-[10px] bg-${e.status==='sent'?'emerald':'gold'}-50 text-${e.status==='sent'?'emerald':'gold'}-700 px-2 py-0.5 rounded-full font-medium uppercase tracking-wider">${e.status}</span>
+            <div class="flex items-center gap-2 flex-wrap">
+              <div class="text-sm font-medium">${escapeHtml(e.subject)}</div>
+              ${statusBadge}
             </div>
-            <div class="text-xs text-ink-500 mt-0.5">To: ${escapeHtml(e.recipient)}${e.cc ? ' · CC: ' + escapeHtml(e.cc) : ''}</div>
+            <div class="text-xs text-ink-500 mt-0.5 truncate">To: ${escapeHtml(e.recipient)}${e.cc ? ' · BCC: ' + escapeHtml(e.cc) : ''}</div>
             <div class="text-xs text-ink-400 mt-0.5">${new Date(e.created_at).toLocaleString()}${e.scheduled_send_time ? ' · scheduled ' + new Date(e.scheduled_send_time).toLocaleString() : ''}</div>
             <details class="mt-3"><summary class="text-xs text-ink-600 hover:text-ink-900 cursor-pointer">View body</summary><pre class="text-xs text-ink-700 mt-2 bg-ink-50 p-3 rounded-lg whitespace-pre-wrap font-sans">${escapeHtml(e.body)}</pre></details>
           </div>
+          ${isQueued ? `<button data-send-now="${e.id}" class="border border-ink-200 hover:border-violet-400 hover:bg-violet-50 text-xs px-3 py-1.5 rounded-lg font-medium shrink-0">Send now</button>` : ''}
         </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
+
+    wrap.querySelectorAll('[data-send-now]').forEach(b => {
+      b.addEventListener('click', () => handleSendOne(b.dataset.sendNow));
+    });
   } catch (e) {
-    wrap.innerHTML = `<div class="text-rose-600">Failed to load outbox: ${escapeHtml(e.message || '')}</div>`;
+    wrap.innerHTML = `<div class="text-rose-600 p-4">Failed to load outbox: ${escapeHtml(e.message || '')}</div>`;
+  }
+}
+
+async function handleSendOne(id) {
+  // Without an external email provider wired up, "send" simulates marking dispatched.
+  toast('Marking as sent (external sender will be wired up next).');
+  try {
+    const { supabase } = await import('./supabaseClient.js');
+    await supabase.from('email_dispatch_queue')
+      .update({ status: 'sent', sent_at: new Date().toISOString() })
+      .eq('id', id);
+    await renderOutbox();
+    updateOutboxBadge(await countQueued());
+  } catch (e) {
+    toast('Mark-as-sent failed: ' + (e.message || e));
+  }
+}
+
+async function handleSendAllQueued() {
+  const queued = (state.cache.outboxRows || []).filter(r => r.status === 'queued');
+  if (queued.length === 0) return;
+  if (!confirm(`Send all ${queued.length} queued email(s)? (Preview behavior: marks them dispatched in the queue.)`)) return;
+  try {
+    const { supabase } = await import('./supabaseClient.js');
+    const ids = queued.map(q => q.id);
+    await supabase.from('email_dispatch_queue')
+      .update({ status: 'sent', sent_at: new Date().toISOString() })
+      .in('id', ids);
+    await renderOutbox();
+    updateOutboxBadge(await countQueued());
+    toast(`Sent ${queued.length} email(s).`);
+  } catch (e) {
+    toast('Bulk send failed: ' + (e.message || e));
   }
 }
 
@@ -562,7 +659,95 @@ function updateOutboxBadge(n) {
 }
 
 // =============================================================
-// 8. SETTINGS
+// 8. AUDIT LOG
+// =============================================================
+async function renderAudit() {
+  try {
+    state.cache.auditLogs = await listAuditLogs({ limit: 200 });
+    renderAuditList();
+  } catch (e) {
+    document.getElementById('audit-list').innerHTML =
+      `<div class="p-8 text-center text-rose-600 text-sm">Failed to load audit log: ${escapeHtml(e.message || '')}</div>`;
+  }
+}
+
+function renderAuditList() {
+  const filter = (document.getElementById('audit-filter')?.value || '').toLowerCase();
+  const list = document.getElementById('audit-list');
+  const empty = document.getElementById('audit-empty');
+  if (!list) return;
+  let rows = state.cache.auditLogs || [];
+  if (filter) {
+    rows = rows.filter(r => {
+      const blob = `${r.action} ${JSON.stringify(r.metadata || {})} ${r.resource_type || ''}`.toLowerCase();
+      return blob.includes(filter);
+    });
+  }
+  if (rows.length === 0) {
+    list.innerHTML = '';
+    empty?.classList.remove('hidden');
+    return;
+  }
+  empty?.classList.add('hidden');
+  list.innerHTML = rows.map(r => {
+    const cls = badgeClassForAction(r.action);
+    const label = labelForAction(r.action);
+    const detail = formatAuditDetail(r);
+    return `
+      <div class="p-4 flex items-start gap-4 hover:bg-violet-50 transition">
+        <span class="evt-badge ${cls} shrink-0">${escapeHtml(label)}</span>
+        <div class="flex-1 min-w-0 mono text-[11px] text-ink-700 leading-relaxed">${detail}</div>
+        <div class="text-[11px] text-ink-500 shrink-0 whitespace-nowrap">${formatAuditTime(r.created_at)}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function badgeClassForAction(a) {
+  if (a === 'register_entry_created' || a === 'notarize') return 'evt-notarize';
+  if (a === 'file_upload' || a === 'upload') return 'evt-upload';
+  if (a === 'signup') return 'evt-signup';
+  if (a === 'email_queued' || a === 'email_sent') return 'evt-email';
+  if (a === 'login') return 'evt-login';
+  if (a === 'logout') return 'evt-logout';
+  return 'evt-default';
+}
+
+function labelForAction(a) {
+  const map = {
+    register_entry_created: 'Notarize',
+    file_upload: 'Upload',
+    email_queued: 'Email Queued',
+    email_sent: 'Email Sent',
+    profile_update: 'Settings',
+    login: 'Login',
+    logout: 'Logout',
+    signup: 'Signup'
+  };
+  return map[a] || a;
+}
+
+function formatAuditDetail(r) {
+  const meta = r.metadata || {};
+  const parts = [];
+  if (meta.doc_no) parts.push(`doc: "${pad3(meta.doc_no)}"`);
+  if (meta.document_type) parts.push(`"${meta.document_type}"`);
+  if (meta.principal) parts.push(`${meta.principal}`);
+  if (meta.filename) parts.push(`file: "${meta.filename}"`);
+  if (meta.recipient) parts.push(`to: ${meta.recipient}`);
+  if (meta.email && r.action === 'signup') parts.push(`email: "${meta.email}"`);
+  return escapeHtml(parts.join(' · ') || (r.resource_type ? `${r.resource_type}` : '—'));
+}
+
+function formatAuditTime(iso) {
+  const d = new Date(iso);
+  const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return `${date} · ${time}`;
+}
+
+// =============================================================
+// 9. SETTINGS
 // =============================================================
 function renderSettings() {
   const p = state.profile || {};
@@ -609,11 +794,16 @@ function readVal(id, fallback) { const el = document.getElementById(id); return 
 function pad3(n) { return String(n).padStart(3, '0'); }
 function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 function escapeAttr(s) { return escapeHtml(s); }
-function initialsOf(s) { return (s || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase(); }
+function initialsOf(s) { return (s || '?').split(' ').filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase(); }
 function formatLong(iso) {
   if (!iso) return '';
   const d = new Date(iso + 'T00:00:00');
   return d.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+function formatShort(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 function batchTimeToday(hhmm) {
   const [h, m] = (hhmm || '17:00').split(':').map(Number);

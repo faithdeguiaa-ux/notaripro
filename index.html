@@ -3,19 +3,21 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>eNotaryo — Compliant Electronic Notarization for Philippine Lawyers</title>
+<title>JurisEasy — Digital Notary for Philippine Lawyers</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   tailwind.config = {
     theme: {
       extend: {
         colors: {
-          ink: { 50:'#f5f6fa', 100:'#e8eaf2', 200:'#cfd3e4', 300:'#a8aecc', 400:'#7c83b0', 500:'#575e93', 600:'#414778', 700:'#343965', 800:'#262a4a', 900:'#161930' },
-          gold: { 50:'#fdf8ed', 100:'#f9eac7', 200:'#f1d287', 300:'#e8b955', 400:'#dba036', 500:'#c0851f', 600:'#9a6717', 700:'#7a5215', 800:'#5d3f15', 900:'#3f2c11' }
+          navy: { 50:'#f5f3fb', 100:'#e7e3f4', 200:'#cdc6e6', 300:'#a99fd0', 400:'#8377b5', 500:'#5e529a', 600:'#473e7d', 700:'#363061', 800:'#241d4f', 900:'#1a0f4f' },
+          violet: { 50:'#f3eefb', 100:'#e3d8f7', 200:'#cab1ee', 300:'#aa86e2', 400:'#8a5fd5', 500:'#6f43c4', 600:'#5a30a8', 700:'#46258a', 800:'#321969', 900:'#1f0d47' },
+          ink: { 50:'#f7f7fb', 100:'#eeeef5', 200:'#d8d8e5', 300:'#b1b2c8', 400:'#83849f', 500:'#5e5f7c', 600:'#464762', 700:'#34344a', 800:'#202036', 900:'#0f0f1f' }
         },
         fontFamily: {
           serif: ['"Source Serif 4"', 'Georgia', 'serif'],
-          sans: ['Inter', 'ui-sans-serif', 'system-ui']
+          sans: ['Inter', 'ui-sans-serif', 'system-ui'],
+          mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace']
         }
       }
     }
@@ -23,46 +25,66 @@
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:wght@600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:wght@600;700;700italic&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   body { font-family: 'Inter', system-ui, sans-serif; }
   .serif { font-family: 'Source Serif 4', Georgia, serif; }
-  .seal {
-    width: 64px; height: 64px; border-radius: 9999px;
-    border: 2px solid #c0851f;
-    display: flex; align-items: center; justify-content: center;
-    background: radial-gradient(circle, #fdf8ed 0%, #f9eac7 100%);
-    color: #5d3f15; font-weight: 700; letter-spacing: 0.05em;
-    box-shadow: 0 0 0 3px #fdf8ed inset, 0 4px 12px rgba(192,133,31,0.15);
-  }
-  .nav-item.active { background: #262a4a; color: #f9eac7; }
-  .nav-item.active .nav-icon { color: #e8b955; }
-  .step-dot.active { background: #c0851f; color: white; }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+  /* Wordmark: Juris (bold serif) + Easy (italic serif violet) */
+  .wordmark { font-family: 'Source Serif 4', Georgia, serif; font-weight: 700; }
+  .wordmark .easy { font-style: italic; font-weight: 700; color: #aa86e2; }
+  .wordmark.dark .easy { color: #cab1ee; }
+
+  /* Sidebar nav */
+  .nav-item { color: #cdc6e6; }
+  .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; }
+  .nav-item.active { background: #6f43c4; color: #fff; box-shadow: 0 4px 14px rgba(111,67,196,0.45); }
+  .nav-item.active .nav-icon { color: #fff; }
+  .nav-icon { color: #a99fd0; }
+
+  /* Wizard stepper */
+  .step-dot.active { background: #6f43c4; color: white; }
   .step-dot.done { background: #16a34a; color: white; }
-  .step-dot { background: #e8eaf2; color: #575e93; }
+  .step-dot { background: #eeeef5; color: #5e5f7c; }
   .step-line.done { background: #16a34a; }
-  .fade-in { animation: fadeIn 0.35s ease-out; }
+
+  .fade-in { animation: fadeIn 0.3s ease-out; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
   .scan-line {
-    background: linear-gradient(180deg, transparent 0%, rgba(192,133,31,0.4) 50%, transparent 100%);
+    background: linear-gradient(180deg, transparent 0%, rgba(111,67,196,0.4) 50%, transparent 100%);
     height: 4px; position: absolute; left:0; right:0;
     animation: scan 1.6s linear infinite;
   }
   @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
+
   .toast {
     position: fixed; bottom: 24px; right: 24px; z-index: 100;
-    background: #262a4a; color: #f9eac7;
+    background: #1a0f4f; color: #fff;
     padding: 14px 20px; border-radius: 10px;
-    box-shadow: 0 10px 25px rgba(22,25,48,0.25);
+    box-shadow: 0 10px 25px rgba(26,15,79,0.35);
     transform: translateY(80px); opacity: 0;
     transition: all 0.3s ease;
   }
   .toast.show { transform: translateY(0); opacity: 1; }
+
   ::-webkit-scrollbar { width: 8px; height: 8px; }
-  ::-webkit-scrollbar-thumb { background: #cfd3e4; border-radius: 4px; }
-  ::-webkit-scrollbar-thumb:hover { background: #a8aecc; }
+  ::-webkit-scrollbar-thumb { background: #cdc6e6; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #a99fd0; }
+
   details > summary { list-style: none; cursor: pointer; }
   details > summary::-webkit-details-marker { display: none; }
+
+  /* Audit log badges */
+  .evt-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+  .evt-notarize { background:#dbeafe; color:#1e40af; }
+  .evt-upload   { background:#dcfce7; color:#166534; }
+  .evt-signup   { background:#ede9fe; color:#5b21b6; }
+  .evt-email    { background:#fef3c7; color:#92400e; }
+  .evt-login    { background:#e0f2fe; color:#075985; }
+  .evt-logout   { background:#f1f5f9; color:#334155; }
+  .evt-default  { background:#eeeef5; color:#34344a; }
 </style>
 
 <!-- Supabase config (generated by build step on Vercel; locally, copy from /js/config.example.js) -->
@@ -74,14 +96,25 @@
 <div id="screen-login" class="min-h-screen flex items-center justify-center px-4">
   <div class="max-w-md w-full">
     <div class="text-center mb-8">
-      <div class="seal mx-auto mb-4">
-        <svg viewBox="0 0 32 32" class="w-7 h-7" fill="currentColor">
-          <path d="M16 2L4 8v9c0 7 5 12 12 13 7-1 12-6 12-13V8L16 2z"/>
-          <path d="M11 16l3 3 7-7" stroke="#fdf8ed" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <!-- Logo: column mark on rounded violet square -->
+      <div class="mx-auto mb-4 w-16 h-16">
+        <svg viewBox="0 0 64 64" class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0" y="0" width="64" height="64" rx="14" fill="#6f43c4"/>
+          <!-- Capital rail -->
+          <rect x="12" y="18" width="40" height="3" rx="1" fill="#cab1ee"/>
+          <!-- Base rail -->
+          <rect x="12" y="44" width="40" height="3" rx="1" fill="#cab1ee"/>
+          <!-- Left column -->
+          <rect x="16" y="22" width="6" height="22" fill="#cab1ee"/>
+          <!-- Center column (shorter, pediment effect) -->
+          <rect x="29" y="26" width="6" height="18" fill="#cab1ee"/>
+          <!-- Right column -->
+          <rect x="42" y="22" width="6" height="22" fill="#cab1ee"/>
         </svg>
       </div>
-      <h1 class="serif text-4xl text-ink-900">eNotaryo</h1>
-      <p class="text-ink-500 mt-2 text-sm">Compliant Electronic Notarization for Philippine Lawyers</p>
+      <div class="wordmark text-4xl text-ink-900 leading-none">Juris<span class="easy">Easy</span></div>
+      <p class="text-[10px] tracking-[0.18em] uppercase text-violet-700 font-semibold mt-2">Digital Notary</p>
+      <p class="text-ink-500 mt-3 text-sm">Compliant electronic notarization for Philippine lawyers</p>
       <p class="text-xs text-ink-400 mt-1">Aligned with A.M. No. 24-10-14-SC · Rules on Electronic Notarization</p>
     </div>
 
@@ -92,39 +125,39 @@
       <div class="space-y-4">
         <div>
           <label class="text-xs font-medium text-ink-700 uppercase tracking-wider">Email</label>
-          <input id="login-email" type="email" placeholder="atty@yourfirm.ph" class="mt-1 w-full px-4 py-2.5 border border-ink-200 rounded-lg focus:ring-2 focus:ring-gold-300 focus:border-gold-400 outline-none">
+          <input id="login-email" type="email" placeholder="atty@yourfirm.ph" class="mt-1 w-full px-4 py-2.5 border border-ink-200 rounded-lg focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none">
         </div>
         <div>
           <label class="text-xs font-medium text-ink-700 uppercase tracking-wider">Password</label>
-          <input id="login-password" type="password" class="mt-1 w-full px-4 py-2.5 border border-ink-200 rounded-lg focus:ring-2 focus:ring-gold-300 focus:border-gold-400 outline-none">
+          <input id="login-password" type="password" class="mt-1 w-full px-4 py-2.5 border border-ink-200 rounded-lg focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none">
         </div>
         <p id="login-error" class="text-xs text-rose-600 min-h-[1em]"></p>
-        <button id="btn-login" class="w-full bg-ink-900 text-gold-100 font-medium py-3 rounded-lg hover:bg-ink-800 transition">Sign in</button>
-        <p class="text-center text-xs text-ink-500">No account yet? <button id="btn-show-signup" class="text-gold-700 hover:text-gold-800 font-medium">Create one</button></p>
+        <button id="btn-login" class="w-full bg-violet-600 text-white font-medium py-3 rounded-lg hover:bg-violet-700 transition">Sign in</button>
+        <p class="text-center text-xs text-ink-500">No account yet? <button id="btn-show-signup" class="text-violet-600 hover:text-violet-700 font-medium">Create one</button></p>
       </div>
       <p class="text-xs text-center text-ink-400 mt-6">By signing in, you affirm your active notarial commission and agree to our compliance terms under the 2004 Notarial Rules and the 2025 E-Notarization Rules.</p>
     </div>
 
     <!-- SIGNUP PANEL -->
     <div id="auth-signup" class="hidden bg-white rounded-2xl shadow-xl p-8 border border-ink-100">
-      <h2 class="serif text-xl mb-1">Create your eNotaryo account</h2>
+      <h2 class="serif text-xl mb-1">Create your JurisEasy account</h2>
       <p class="text-sm text-ink-500 mb-6">You can complete your commission details after signing in.</p>
       <div class="space-y-4">
         <div>
           <label class="text-xs font-medium text-ink-700 uppercase tracking-wider">Full Name</label>
-          <input id="signup-name" type="text" placeholder="Atty. Juan A. dela Cruz" class="mt-1 w-full px-4 py-2.5 border border-ink-200 rounded-lg focus:ring-2 focus:ring-gold-300 focus:border-gold-400 outline-none">
+          <input id="signup-name" type="text" placeholder="Atty. Juan A. dela Cruz" class="mt-1 w-full px-4 py-2.5 border border-ink-200 rounded-lg focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none">
         </div>
         <div>
           <label class="text-xs font-medium text-ink-700 uppercase tracking-wider">Email</label>
-          <input id="signup-email" type="email" placeholder="atty@yourfirm.ph" class="mt-1 w-full px-4 py-2.5 border border-ink-200 rounded-lg focus:ring-2 focus:ring-gold-300 focus:border-gold-400 outline-none">
+          <input id="signup-email" type="email" placeholder="atty@yourfirm.ph" class="mt-1 w-full px-4 py-2.5 border border-ink-200 rounded-lg focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none">
         </div>
         <div>
           <label class="text-xs font-medium text-ink-700 uppercase tracking-wider">Password</label>
-          <input id="signup-password" type="password" class="mt-1 w-full px-4 py-2.5 border border-ink-200 rounded-lg focus:ring-2 focus:ring-gold-300 focus:border-gold-400 outline-none">
+          <input id="signup-password" type="password" class="mt-1 w-full px-4 py-2.5 border border-ink-200 rounded-lg focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none">
         </div>
         <p id="signup-error" class="text-xs text-rose-600 min-h-[1em]"></p>
-        <button id="btn-signup" class="w-full bg-ink-900 text-gold-100 font-medium py-3 rounded-lg hover:bg-ink-800 transition">Create account</button>
-        <p class="text-center text-xs text-ink-500">Already have one? <button id="btn-show-login" class="text-gold-700 hover:text-gold-800 font-medium">Sign in</button></p>
+        <button id="btn-signup" class="w-full bg-violet-600 text-white font-medium py-3 rounded-lg hover:bg-violet-700 transition">Create account</button>
+        <p class="text-center text-xs text-ink-500">Already have one? <button id="btn-show-login" class="text-violet-600 hover:text-violet-700 font-medium">Sign in</button></p>
       </div>
     </div>
   </div>
@@ -135,49 +168,60 @@
   <div class="flex min-h-screen">
 
     <!-- Sidebar -->
-    <aside class="w-64 bg-ink-900 text-ink-100 flex flex-col">
-      <div class="px-6 py-5 border-b border-ink-800 flex items-center gap-3">
-        <div class="w-9 h-9 rounded-full border border-gold-400 flex items-center justify-center bg-ink-800">
-          <svg viewBox="0 0 32 32" class="w-5 h-5 text-gold-300" fill="currentColor"><path d="M16 2L4 8v9c0 7 5 12 12 13 7-1 12-6 12-13V8L16 2z"/></svg>
+    <aside class="w-64 bg-navy-900 text-navy-200 flex flex-col">
+      <div class="px-5 py-5 flex items-center gap-3">
+        <div class="w-10 h-10 shrink-0">
+          <svg viewBox="0 0 64 64" class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <rect x="0" y="0" width="64" height="64" rx="14" fill="#6f43c4"/>
+            <rect x="12" y="18" width="40" height="3" rx="1" fill="#cab1ee"/>
+            <rect x="12" y="44" width="40" height="3" rx="1" fill="#cab1ee"/>
+            <rect x="16" y="22" width="6" height="22" fill="#cab1ee"/>
+            <rect x="29" y="26" width="6" height="18" fill="#cab1ee"/>
+            <rect x="42" y="22" width="6" height="22" fill="#cab1ee"/>
+          </svg>
         </div>
-        <div>
-          <div class="serif text-lg text-white">eNotaryo</div>
-          <div class="text-[10px] text-ink-400 uppercase tracking-wider">Beta</div>
+        <div class="leading-tight">
+          <div class="wordmark dark text-xl text-white">Juris<span class="easy">Easy</span></div>
+          <div class="text-[9px] tracking-[0.16em] uppercase text-violet-300 font-semibold">Digital Notary</div>
         </div>
       </div>
 
       <nav class="flex-1 p-3 space-y-1 text-sm">
-        <button data-view="dashboard" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-ink-800 transition text-left">
-          <svg class="nav-icon w-5 h-5 text-ink-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg>
+        <button data-view="dashboard" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition text-left">
+          <svg class="nav-icon w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 5h6v6H4zM14 5h6v6h-6zM4 13h6v6H4zM14 13h6v6h-6z"/></svg>
           <span>Dashboard</span>
         </button>
-        <button data-view="new" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-ink-800 transition text-left">
-          <svg class="nav-icon w-5 h-5 text-ink-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+        <button data-view="new" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition text-left">
+          <svg class="nav-icon w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
           <span>New Notarization</span>
         </button>
-        <button data-view="register" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-ink-800 transition text-left">
-          <svg class="nav-icon w-5 h-5 text-ink-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16v16H4zM4 9h16M9 4v16"/></svg>
+        <button data-view="register" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition text-left">
+          <svg class="nav-icon w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16v16H4zM4 9h16M9 4v16"/></svg>
           <span>Notarial Register</span>
         </button>
-        <button data-view="outbox" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-ink-800 transition text-left">
-          <svg class="nav-icon w-5 h-5 text-ink-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 8l9 6 9-6M3 8v10a2 2 0 002 2h14a2 2 0 002-2V8M3 8l9-5 9 5"/></svg>
+        <button data-view="outbox" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition text-left">
+          <svg class="nav-icon w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 8l9 6 9-6M3 8v10a2 2 0 002 2h14a2 2 0 002-2V8M3 8l9-5 9 5"/></svg>
           <span>Email Outbox</span>
-          <span id="outbox-badge" class="ml-auto text-[10px] bg-gold-400 text-ink-900 px-1.5 py-0.5 rounded-full font-semibold hidden">0</span>
+          <span id="outbox-badge" class="ml-auto text-[10px] bg-violet-500 text-white px-1.5 py-0.5 rounded-full font-semibold hidden">0</span>
         </button>
-        <button data-view="settings" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-ink-800 transition text-left">
-          <svg class="nav-icon w-5 h-5 text-ink-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-          <span>Commission &amp; Settings</span>
+        <button data-view="audit" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition text-left">
+          <svg class="nav-icon w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          <span>Audit Log</span>
+        </button>
+        <button data-view="settings" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition text-left">
+          <svg class="nav-icon w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 21v-1a7 7 0 0114 0v1"/></svg>
+          <span>Settings</span>
         </button>
       </nav>
 
-      <div class="p-4 border-t border-ink-800">
-        <div class="flex items-center gap-2 mt-3 px-1">
-          <div id="profile-initials" class="w-8 h-8 rounded-full bg-gold-400 text-ink-900 flex items-center justify-center text-xs font-semibold">—</div>
+      <div class="p-4 border-t border-navy-800">
+        <div class="flex items-center gap-2 px-1">
+          <div id="profile-initials" class="w-9 h-9 rounded-full bg-violet-500 text-white flex items-center justify-center text-xs font-semibold">—</div>
           <div class="flex-1 min-w-0">
-            <div id="profile-name" class="text-xs font-medium truncate">—</div>
-            <div id="profile-meta" class="text-[10px] text-ink-400 truncate">—</div>
+            <div id="profile-name" class="text-xs font-medium text-white truncate">—</div>
+            <div id="profile-meta" class="text-[10px] text-navy-300 truncate">Notary Public</div>
           </div>
-          <button id="btn-signout" title="Sign out" class="text-ink-400 hover:text-gold-300">
+          <button id="btn-signout" title="Sign out" class="text-navy-300 hover:text-white">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
           </button>
         </div>
@@ -185,40 +229,39 @@
     </aside>
 
     <!-- Main content -->
-    <main class="flex-1 overflow-x-hidden">
+    <main class="flex-1 overflow-x-hidden bg-ink-50">
 
       <!-- ============ DASHBOARD ============ -->
       <section id="view-dashboard" class="view p-8 max-w-6xl mx-auto fade-in">
         <div class="flex items-start justify-between mb-8">
           <div>
             <p class="text-sm text-ink-500" id="today-date">—</p>
-            <h1 class="serif text-3xl mt-1" id="greeting">Welcome back.</h1>
-            <p class="text-ink-500 mt-1 text-sm">Here's your notarial activity at a glance.</p>
+            <h1 class="serif text-3xl mt-1">Welcome back, <span id="greeting-name">there</span>.</h1>
+            <p class="text-ink-500 mt-1 text-sm">Your notarial activity at a glance.</p>
           </div>
-          <button data-view="new" class="bg-ink-900 text-gold-100 px-5 py-2.5 rounded-lg hover:bg-ink-800 transition flex items-center gap-2 font-medium text-sm">
+          <button data-view="new" class="bg-white border border-ink-200 text-ink-900 px-5 py-2.5 rounded-lg hover:border-violet-400 hover:bg-violet-50 transition flex items-center gap-2 font-medium text-sm">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
             New Notarization
           </button>
         </div>
 
-        <!-- KPIs -->
+        <!-- KPIs (Notarized today is accent-filled) -->
         <div class="grid grid-cols-4 gap-4 mb-8">
-          <div class="bg-white rounded-xl p-5 border border-ink-100">
-            <div class="text-xs uppercase tracking-wider text-ink-500">Notarized today</div>
-            <div class="serif text-3xl mt-2" id="kpi-today">0</div>
+          <div class="rounded-xl p-5 bg-violet-500 text-white shadow-lg shadow-violet-200">
+            <div class="text-[10px] uppercase tracking-[0.15em] opacity-80 font-semibold">Notarized Today</div>
+            <div class="serif text-4xl mt-2 leading-none" id="kpi-today">0</div>
           </div>
           <div class="bg-white rounded-xl p-5 border border-ink-100">
-            <div class="text-xs uppercase tracking-wider text-ink-500">This month</div>
-            <div class="serif text-3xl mt-2" id="kpi-month">0</div>
+            <div class="text-[10px] uppercase tracking-[0.15em] text-ink-500 font-semibold">This Month</div>
+            <div class="serif text-4xl mt-2 leading-none" id="kpi-month">0</div>
           </div>
           <div class="bg-white rounded-xl p-5 border border-ink-100">
-            <div class="text-xs uppercase tracking-wider text-ink-500">Pending dispatch</div>
-            <div class="serif text-3xl mt-2" id="kpi-pending">0</div>
+            <div class="text-[10px] uppercase tracking-[0.15em] text-ink-500 font-semibold">Pending Dispatch</div>
+            <div class="serif text-4xl mt-2 leading-none" id="kpi-pending">0</div>
           </div>
           <div class="bg-white rounded-xl p-5 border border-ink-100">
-            <div class="text-xs uppercase tracking-wider text-ink-500">Status</div>
-            <div class="serif text-lg mt-2 text-emerald-700">Compliant</div>
-            <div class="text-xs text-ink-500 mt-1">Register up to date</div>
+            <div class="text-[10px] uppercase tracking-[0.15em] text-ink-500 font-semibold">Audit Events</div>
+            <div class="serif text-4xl mt-2 leading-none" id="kpi-audit">0</div>
           </div>
         </div>
 
@@ -226,31 +269,55 @@
           <!-- Recent activity -->
           <div class="col-span-2 bg-white rounded-xl border border-ink-100">
             <div class="p-5 border-b border-ink-100 flex items-center justify-between">
-              <h3 class="serif text-lg">Recent Activity</h3>
-              <button data-view="register" class="text-xs text-ink-500 hover:text-ink-900">See all</button>
+              <h3 class="serif text-lg">Recent activity</h3>
+              <button data-view="register" class="text-xs text-violet-600 hover:text-violet-700 font-medium flex items-center gap-1">See all <span aria-hidden="true">→</span></button>
             </div>
             <div class="divide-y divide-ink-100" id="recent-activity"></div>
           </div>
 
           <!-- Quick actions -->
           <div class="bg-white rounded-xl border border-ink-100 p-5">
-            <h3 class="serif text-lg mb-4">Quick Actions</h3>
+            <h3 class="serif text-lg mb-4">Quick actions</h3>
             <div class="space-y-2">
-              <button data-view="new" class="w-full text-left p-3 rounded-lg border border-ink-100 hover:border-gold-300 hover:bg-gold-50 transition">
-                <div class="text-sm font-medium">Notarize a new document</div>
-                <div class="text-xs text-ink-500 mt-0.5">Upload, OCR, log, dispatch</div>
+              <button data-view="new" class="w-full text-left p-3 rounded-lg hover:bg-violet-50 transition flex items-center gap-3 group">
+                <span class="w-9 h-9 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center shrink-0">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/></svg>
+                </span>
+                <span class="flex-1">
+                  <span class="block text-sm font-medium">Notarize a document</span>
+                  <span class="block text-xs text-ink-500">Upload, OCR, log, dispatch</span>
+                </span>
+                <span class="text-ink-300 group-hover:text-violet-600">→</span>
               </button>
-              <button data-view="register" class="w-full text-left p-3 rounded-lg border border-ink-100 hover:border-gold-300 hover:bg-gold-50 transition">
-                <div class="text-sm font-medium">View Notarial Register</div>
-                <div class="text-xs text-ink-500 mt-0.5">Search, filter, export</div>
+              <button data-view="register" class="w-full text-left p-3 rounded-lg hover:bg-violet-50 transition flex items-center gap-3 group">
+                <span class="w-9 h-9 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center shrink-0">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h12"/></svg>
+                </span>
+                <span class="flex-1">
+                  <span class="block text-sm font-medium">Notarial register</span>
+                  <span class="block text-xs text-ink-500">Search, filter, scan</span>
+                </span>
+                <span class="text-ink-300 group-hover:text-violet-600">→</span>
               </button>
-              <button data-view="outbox" class="w-full text-left p-3 rounded-lg border border-ink-100 hover:border-gold-300 hover:bg-gold-50 transition">
-                <div class="text-sm font-medium">Review pending emails</div>
-                <div class="text-xs text-ink-500 mt-0.5">Auto-drafted dispatches</div>
+              <button data-view="outbox" class="w-full text-left p-3 rounded-lg hover:bg-violet-50 transition flex items-center gap-3 group">
+                <span class="w-9 h-9 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center shrink-0">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 8l9 6 9-6M3 8v10a2 2 0 002 2h14a2 2 0 002-2V8M3 8l9-5 9 5"/></svg>
+                </span>
+                <span class="flex-1">
+                  <span class="block text-sm font-medium">Email outbox</span>
+                  <span class="block text-xs text-ink-500">Auto-drafted dispatches</span>
+                </span>
+                <span class="text-ink-300 group-hover:text-violet-600">→</span>
               </button>
-              <button data-view="settings" class="w-full text-left p-3 rounded-lg border border-ink-100 hover:border-gold-300 hover:bg-gold-50 transition">
-                <div class="text-sm font-medium">Update commission info</div>
-                <div class="text-xs text-ink-500 mt-0.5">Profile, OCS email, filename</div>
+              <button data-view="audit" class="w-full text-left p-3 rounded-lg hover:bg-violet-50 transition flex items-center gap-3 group">
+                <span class="w-9 h-9 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center shrink-0">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                </span>
+                <span class="flex-1">
+                  <span class="block text-sm font-medium">Audit log</span>
+                  <span class="block text-xs text-ink-500">Every action timestamped</span>
+                </span>
+                <span class="text-ink-300 group-hover:text-violet-600">→</span>
               </button>
             </div>
           </div>
@@ -261,10 +328,10 @@
       <section id="view-new" class="view hidden p-8 max-w-5xl mx-auto fade-in">
         <div class="flex items-center justify-between mb-6">
           <div>
+            <button data-view="dashboard" class="text-sm text-ink-500 hover:text-ink-900 mb-2 flex items-center gap-1"><span aria-hidden="true">←</span> Back to dashboard</button>
             <h1 class="serif text-3xl">New Notarization</h1>
-            <p class="text-ink-500 mt-1 text-sm">Upload a PDF. We'll handle the rest — OCR, naming, register entry, and dispatch.</p>
+            <p class="text-ink-500 mt-1 text-sm">Upload a PDF — we'll OCR-extract, log, and queue dispatch automatically.</p>
           </div>
-          <button data-view="dashboard" class="text-sm text-ink-500 hover:text-ink-900">← Back to dashboard</button>
         </div>
 
         <!-- Stepper -->
@@ -292,32 +359,37 @@
 
         <!-- STEP 1: Upload -->
         <div id="wiz-step-1" class="bg-white rounded-xl border border-ink-100 p-8">
-          <h2 class="serif text-xl mb-2">Upload notarized PDF</h2>
-          <p class="text-sm text-ink-500 mb-6">PDF or PDF/A only, per Section 5 of the E-Notarization Rules. Stored privately in your Supabase bucket.</p>
+          <h2 class="serif text-xl mb-1">Upload notarized PDF</h2>
+          <p class="text-sm text-ink-500 mb-6">PDF or PDF/A · max 20MB · auto-detects type, principals, emails.</p>
 
-          <label for="file-input" class="block border-2 border-dashed border-ink-200 rounded-xl p-12 text-center cursor-pointer hover:border-gold-400 hover:bg-gold-50 transition">
-            <svg class="w-12 h-12 mx-auto text-ink-400 mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 4v12m0-12l-4 4m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+          <label for="file-input" class="block border-2 border-dashed border-ink-200 rounded-xl p-12 text-center cursor-pointer hover:border-violet-400 hover:bg-violet-50 transition">
+            <span class="inline-flex w-14 h-14 rounded-xl bg-violet-100 text-violet-600 items-center justify-center mb-3">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v12m0-12l-4 4m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+            </span>
             <div class="text-base font-medium">Drop your PDF here or click to browse</div>
-            <div class="text-xs text-ink-500 mt-1">We'll auto-detect document type, principals, and contact emails.</div>
+            <div class="text-xs text-ink-500 mt-1">PDF or PDF/A · max 20MB · auto-detects type, principals, emails</div>
           </label>
           <input id="file-input" type="file" accept="application/pdf,.pdf" class="hidden">
 
-          <div class="mt-6">
-            <p class="text-xs uppercase tracking-wider text-ink-500 mb-3">Or try a sample document (uses stub OCR)</p>
-            <div class="grid grid-cols-3 gap-3">
-              <button data-sample="0" class="text-left border border-ink-100 hover:border-gold-300 hover:bg-gold-50 rounded-lg p-3 transition">
-                <div class="text-sm font-medium">Affidavit of Loss</div>
-                <div class="text-xs text-ink-500 mt-0.5">Single principal · 1 page</div>
-              </button>
-              <button data-sample="1" class="text-left border border-ink-100 hover:border-gold-300 hover:bg-gold-50 rounded-lg p-3 transition">
-                <div class="text-sm font-medium">Deed of Absolute Sale</div>
-                <div class="text-xs text-ink-500 mt-0.5">2 principals · 4 pages</div>
-              </button>
-              <button data-sample="2" class="text-left border border-ink-100 hover:border-gold-300 hover:bg-gold-50 rounded-lg p-3 transition">
-                <div class="text-sm font-medium">Special Power of Attorney</div>
-                <div class="text-xs text-ink-500 mt-0.5">Principal + attorney-in-fact · 2 pages</div>
-              </button>
-            </div>
+          <div class="my-6 flex items-center gap-3">
+            <div class="flex-1 h-px bg-ink-100"></div>
+            <span class="text-[10px] uppercase tracking-[0.18em] text-ink-400 font-semibold">Or try a sample</span>
+            <div class="flex-1 h-px bg-ink-100"></div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-3">
+            <button data-sample="0" class="text-left border border-ink-100 hover:border-violet-300 hover:bg-violet-50 rounded-lg p-3 transition">
+              <div class="text-sm font-medium">Affidavit of Loss</div>
+              <div class="text-xs text-ink-500 mt-0.5">Single principal · 1 page</div>
+            </button>
+            <button data-sample="1" class="text-left border border-ink-100 hover:border-violet-300 hover:bg-violet-50 rounded-lg p-3 transition">
+              <div class="text-sm font-medium">Deed of Absolute Sale</div>
+              <div class="text-xs text-ink-500 mt-0.5">2 principals · 4 pages</div>
+            </button>
+            <button data-sample="2" class="text-left border border-ink-100 hover:border-violet-300 hover:bg-violet-50 rounded-lg p-3 transition">
+              <div class="text-sm font-medium">Special Power of Attorney</div>
+              <div class="text-xs text-ink-500 mt-0.5">Principal + attorney · 2 pages</div>
+            </button>
           </div>
         </div>
 
@@ -342,9 +414,6 @@
                   <p>CITY OF _______________ } S.S.</p>
                   <p class="mt-2">I, <span id="prev-name">—</span>, of legal age, Filipino, after having been duly sworn in accordance with law, do hereby depose and state…</p>
                   <p class="mt-2">Email: <span id="prev-email" class="underline">—</span></p>
-                  <div class="mt-4 flex justify-end items-end">
-                    <div class="seal" style="width:54px;height:54px;font-size:9px;">SEAL</div>
-                  </div>
                   <p class="mt-3 text-[9px]">SUBSCRIBED AND SWORN to before me this <strong id="prev-date">—</strong>.</p>
                 </div>
               </div>
@@ -358,11 +427,11 @@
               <div class="grid grid-cols-2 gap-4">
                 <div>
                   <label class="text-xs font-medium uppercase tracking-wider text-ink-700">Document Type</label>
-                  <input id="ext-type" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg text-sm">
+                  <input id="ext-type" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg text-sm focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none">
                 </div>
                 <div>
                   <label class="text-xs font-medium uppercase tracking-wider text-ink-700">Notarial Act</label>
-                  <select id="ext-act" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg text-sm bg-white">
+                  <select id="ext-act" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none">
                     <option>Jurat</option>
                     <option>Acknowledgment</option>
                     <option>Oath / Affirmation</option>
@@ -378,11 +447,11 @@
               <div class="grid grid-cols-2 gap-4">
                 <div>
                   <label class="text-xs font-medium uppercase tracking-wider text-ink-700">Date Notarized</label>
-                  <input id="ext-date" type="date" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg text-sm">
+                  <input id="ext-date" type="date" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg text-sm focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none">
                 </div>
                 <div>
                   <label class="text-xs font-medium uppercase tracking-wider text-ink-700">Notarial Fee (₱)</label>
-                  <input id="ext-fee" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg text-sm">
+                  <input id="ext-fee" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg text-sm focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none">
                 </div>
               </div>
               <div>
@@ -394,21 +463,21 @@
 
           <div class="flex justify-between mt-8 pt-6 border-t border-ink-100">
             <button data-wiz-back="1" class="text-sm text-ink-500 hover:text-ink-900">← Back</button>
-            <button data-wiz-next="3" class="bg-ink-900 text-gold-100 px-5 py-2.5 rounded-lg hover:bg-ink-800 transition font-medium text-sm">Confirm and continue →</button>
+            <button data-wiz-next="3" class="bg-violet-600 text-white px-5 py-2.5 rounded-lg hover:bg-violet-700 transition font-medium text-sm">Confirm and continue →</button>
           </div>
         </div>
 
         <!-- STEP 3: Log + Auto-rename -->
         <div id="wiz-step-3" class="hidden bg-white rounded-xl border border-ink-100 p-8">
           <h2 class="serif text-xl mb-2">Log to Notarial Register</h2>
-          <p class="text-sm text-ink-500 mb-6">We'll insert the row in <code class="text-xs bg-ink-100 px-1 rounded">register_entries</code>, advance your counters, and generate the SC-style filename.</p>
+          <p class="text-sm text-ink-500 mb-6">We'll insert the row, advance your counters, and generate the SC-style filename.</p>
 
           <div class="grid grid-cols-2 gap-6">
-            <div class="bg-ink-50 rounded-lg p-5 border border-ink-100">
-              <div class="text-xs uppercase tracking-wider text-ink-500 mb-3">Notarial Register Entry (preview)</div>
+            <div class="bg-violet-50 rounded-lg p-5 border border-violet-100">
+              <div class="text-xs uppercase tracking-wider text-violet-700 mb-3 font-semibold">Notarial Register Entry (preview)</div>
               <table class="w-full text-sm">
-                <tbody class="divide-y divide-ink-200">
-                  <tr><td class="py-2 text-ink-500">Document No.</td><td class="py-2 text-right font-medium" id="reg-doc">—</td></tr>
+                <tbody class="divide-y divide-violet-100">
+                  <tr><td class="py-2 text-ink-500">Document No.</td><td class="py-2 text-right font-medium text-violet-700" id="reg-doc">—</td></tr>
                   <tr><td class="py-2 text-ink-500">Page No.</td><td class="py-2 text-right font-medium" id="reg-page">—</td></tr>
                   <tr><td class="py-2 text-ink-500">Book No.</td><td class="py-2 text-right font-medium" id="reg-book">—</td></tr>
                   <tr><td class="py-2 text-ink-500">Series of</td><td class="py-2 text-right font-medium" id="reg-series">—</td></tr>
@@ -418,18 +487,18 @@
                   <tr><td class="py-2 text-ink-500">Notarial Fee</td><td class="py-2 text-right font-medium" id="reg-fee-display">—</td></tr>
                 </tbody>
               </table>
-              <p class="text-xs text-ink-500 mt-3">The entry is finalized only after you click <strong>Log to Register</strong> below.</p>
+              <p class="text-xs text-ink-500 mt-3">Finalized only after you click <strong>Log to Register</strong> below.</p>
             </div>
 
             <div>
-              <div class="text-xs uppercase tracking-wider text-ink-500 mb-3">Auto-generated filename</div>
-              <div class="bg-ink-900 text-gold-100 rounded-lg p-4 font-mono text-xs break-all" id="filename-preview">—</div>
+              <div class="text-xs uppercase tracking-wider text-ink-500 mb-3 font-semibold">Auto-generated filename</div>
+              <div class="bg-navy-900 text-violet-200 rounded-lg p-4 mono text-xs break-all" id="filename-preview">—</div>
               <p class="text-xs text-ink-500 mt-2">Pattern is configurable in Settings.</p>
               <div class="mt-5 bg-emerald-50 border border-emerald-200 rounded-lg p-4">
                 <div class="text-sm font-medium text-emerald-900">Compliance checks</div>
                 <ul class="text-xs text-emerald-800 mt-1 space-y-0.5">
                   <li>· PDF uploaded to private bucket</li>
-                  <li>· Sequential entry per lawyer enforced (unique constraint)</li>
+                  <li>· Sequential entry per lawyer enforced</li>
                   <li>· RLS scoped to your account</li>
                   <li>· Principal identifiers persisted</li>
                 </ul>
@@ -439,34 +508,39 @@
 
           <div class="flex justify-between mt-8 pt-6 border-t border-ink-100">
             <button data-wiz-back="2" class="text-sm text-ink-500 hover:text-ink-900">← Back</button>
-            <button id="btn-commit-register" class="bg-ink-900 text-gold-100 px-5 py-2.5 rounded-lg hover:bg-ink-800 transition font-medium text-sm">Log to Register & Continue →</button>
+            <button id="btn-commit-register" class="bg-violet-600 text-white px-5 py-2.5 rounded-lg hover:bg-violet-700 transition font-medium text-sm">Log to Register & Continue →</button>
           </div>
         </div>
 
         <!-- STEP 4: Dispatch -->
         <div id="wiz-step-4" class="hidden bg-white rounded-xl border border-ink-100 p-8">
           <h2 class="serif text-xl mb-2">Dispatch notarized PDF</h2>
-          <p class="text-sm text-ink-500 mb-6">Auto-drafted emails (review and edit). Inserts into <code class="text-xs bg-ink-100 px-1 rounded">email_dispatch_queue</code>; external email sender will be wired up next.</p>
-
+          <p class="text-sm text-ink-500 mb-6">Auto-drafted emails — review and edit. Inserted into your dispatch queue.</p>
           <div id="dispatch-emails" class="space-y-4"></div>
-
           <div class="flex justify-between mt-8 pt-6 border-t border-ink-100">
             <button id="btn-queue-batch" class="text-sm text-ink-700 hover:text-ink-900 border border-ink-200 px-4 py-2 rounded-lg">Queue for batch dispatch</button>
-            <button id="btn-send-now" class="bg-ink-900 text-gold-100 px-5 py-2.5 rounded-lg hover:bg-ink-800 transition font-medium text-sm">Queue for immediate send</button>
+            <button id="btn-send-now" class="bg-violet-600 text-white px-5 py-2.5 rounded-lg hover:bg-violet-700 transition font-medium text-sm">Queue for immediate send</button>
           </div>
         </div>
 
         <!-- STEP 5: Done -->
         <div id="wiz-step-5" class="hidden bg-white rounded-xl border border-ink-100 p-12 text-center">
-          <div class="seal mx-auto mb-5" style="width:80px;height:80px;">
-            <svg viewBox="0 0 32 32" class="w-9 h-9" fill="currentColor"><path d="M16 2L4 8v9c0 7 5 12 12 13 7-1 12-6 12-13V8L16 2z"/><path d="M11 16l3 3 7-7" stroke="#fdf8ed" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div class="mx-auto mb-5 w-20 h-20">
+            <svg viewBox="0 0 64 64" class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+              <rect x="0" y="0" width="64" height="64" rx="14" fill="#6f43c4"/>
+              <rect x="12" y="18" width="40" height="3" rx="1" fill="#cab1ee"/>
+              <rect x="12" y="44" width="40" height="3" rx="1" fill="#cab1ee"/>
+              <rect x="16" y="22" width="6" height="22" fill="#cab1ee"/>
+              <rect x="29" y="26" width="6" height="18" fill="#cab1ee"/>
+              <rect x="42" y="22" width="6" height="22" fill="#cab1ee"/>
+            </svg>
           </div>
           <h2 class="serif text-2xl mb-2">Notarization complete.</h2>
           <p class="text-ink-500 mb-1"><strong id="done-doc-no">—</strong></p>
           <p class="text-sm text-ink-500" id="done-summary">—</p>
           <div class="flex items-center justify-center gap-3 mt-8">
             <button data-view="register" class="border border-ink-200 px-4 py-2.5 rounded-lg text-sm hover:bg-ink-50">View in Register</button>
-            <button id="btn-new-another" class="bg-ink-900 text-gold-100 px-5 py-2.5 rounded-lg hover:bg-ink-800 text-sm font-medium">Notarize another</button>
+            <button id="btn-new-another" class="bg-violet-600 text-white px-5 py-2.5 rounded-lg hover:bg-violet-700 text-sm font-medium">Notarize another</button>
           </div>
         </div>
       </section>
@@ -475,18 +549,24 @@
       <section id="view-register" class="view hidden p-8 max-w-7xl mx-auto fade-in">
         <div class="flex items-start justify-between mb-6">
           <div>
-            <h1 class="serif text-3xl">Digital Notarial Register</h1>
+            <h1 class="serif text-3xl">Notarial Register</h1>
             <p class="text-ink-500 mt-1 text-sm">Live from your Supabase database.</p>
           </div>
           <div class="flex gap-2">
-            <button id="btn-export-register" class="border border-ink-200 px-4 py-2.5 rounded-lg text-sm hover:bg-ink-50">Export PDF/A</button>
-            <button data-view="new" class="bg-ink-900 text-gold-100 px-4 py-2.5 rounded-lg text-sm hover:bg-ink-800 font-medium">+ New Entry</button>
+            <button id="btn-export-csv" class="border border-ink-200 px-4 py-2.5 rounded-lg text-sm hover:bg-ink-50 flex items-center gap-2 font-medium">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14m0 0l-5-5m5 5l5-5"/></svg>
+              Export CSV
+            </button>
+            <button data-view="new" class="bg-violet-600 text-white px-4 py-2.5 rounded-lg text-sm hover:bg-violet-700 font-medium flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+              New Entry
+            </button>
           </div>
         </div>
 
         <div class="bg-white rounded-xl border border-ink-100 overflow-hidden">
-          <div class="p-4 border-b border-ink-100 flex items-center gap-3">
-            <input id="reg-search" placeholder="Search principal, doc type, doc no…" class="flex-1 max-w-sm px-3 py-2 border border-ink-200 rounded-lg text-sm">
+          <div class="p-4 border-b border-ink-100 flex items-center gap-3 flex-wrap">
+            <input id="reg-search" placeholder="Principal, doc type, doc no…" class="flex-1 max-w-sm px-3 py-2 border border-ink-200 rounded-lg text-sm focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none">
             <select id="reg-filter-type" class="border border-ink-200 rounded-lg text-sm px-3 py-2 bg-white">
               <option value="">All document types</option>
               <option>Affidavit of Loss</option>
@@ -500,7 +580,7 @@
           </div>
 
           <table class="w-full text-sm">
-            <thead class="bg-ink-50 text-ink-500 text-xs uppercase tracking-wider">
+            <thead class="bg-violet-50 text-violet-700 text-[10px] uppercase tracking-[0.12em] font-semibold">
               <tr>
                 <th class="text-left px-4 py-3">Doc No.</th>
                 <th class="text-left px-4 py-3">Date</th>
@@ -514,48 +594,101 @@
             </thead>
             <tbody id="register-tbody" class="divide-y divide-ink-100"></tbody>
           </table>
+
+          <!-- Empty state -->
+          <div id="register-empty" class="hidden p-16 text-center">
+            <div class="mx-auto mb-4 w-16 h-16 rounded-2xl bg-violet-100 flex items-center justify-center">
+              <svg class="w-7 h-7 text-violet-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M4 4h16v16H4zM4 9h16M9 4v16"/></svg>
+            </div>
+            <h3 class="serif text-lg">No entries yet</h3>
+            <p class="text-sm text-ink-500 mt-1 max-w-sm mx-auto">Your register is ready. Notarize your first document and it will appear here automatically.</p>
+            <button data-view="new" class="mt-5 inline-flex items-center gap-2 bg-violet-600 text-white px-4 py-2.5 rounded-lg text-sm hover:bg-violet-700 font-medium">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+              Notarize a document
+            </button>
+          </div>
+
+          <div class="p-3 border-t border-ink-100 text-xs text-ink-500 flex items-center justify-between">
+            <span id="register-count">—</span>
+          </div>
         </div>
       </section>
 
       <!-- ============ EMAIL OUTBOX ============ -->
       <section id="view-outbox" class="view hidden p-8 max-w-5xl mx-auto fade-in">
-        <h1 class="serif text-3xl mb-6">Email Outbox</h1>
+        <div class="flex items-start justify-between mb-6">
+          <div>
+            <h1 class="serif text-3xl flex items-center gap-3">Email Outbox <span id="outbox-queued-pill" class="text-xs bg-violet-100 text-violet-700 px-2.5 py-1 rounded-full font-semibold hidden">0 queued</span></h1>
+            <p class="text-ink-500 mt-1 text-sm">Auto-drafted emails to your clients and the OCS.</p>
+          </div>
+          <button id="btn-send-all-queued" class="hidden bg-violet-600 text-white px-4 py-2.5 rounded-lg text-sm hover:bg-violet-700 font-medium">Send all queued</button>
+        </div>
         <div id="outbox-list" class="space-y-3"></div>
+        <div id="outbox-empty" class="hidden p-16 text-center bg-white border border-ink-100 rounded-xl">
+          <div class="mx-auto mb-4 w-16 h-16 rounded-2xl bg-violet-100 flex items-center justify-center">
+            <svg class="w-7 h-7 text-violet-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M3 8l9 6 9-6M3 8v10a2 2 0 002 2h14a2 2 0 002-2V8M3 8l9-5 9 5"/></svg>
+          </div>
+          <h3 class="serif text-lg">No emails yet</h3>
+          <p class="text-sm text-ink-500 mt-1">Dispatched emails will appear here as soon as you log a notarial entry.</p>
+        </div>
+      </section>
+
+      <!-- ============ AUDIT LOG ============ -->
+      <section id="view-audit" class="view hidden p-8 max-w-5xl mx-auto fade-in">
+        <div class="flex items-start justify-between mb-6">
+          <div>
+            <h1 class="serif text-3xl">Audit Log</h1>
+            <p class="text-ink-500 mt-1 text-sm">Every login, upload, register entry, profile change, and email is timestamped here.</p>
+          </div>
+          <input id="audit-filter" placeholder="Filter events…" class="px-3 py-2 border border-ink-200 rounded-lg text-sm focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none">
+        </div>
+        <div class="bg-white rounded-xl border border-ink-100 overflow-hidden">
+          <div id="audit-list" class="divide-y divide-ink-100"></div>
+          <div id="audit-empty" class="hidden p-16 text-center">
+            <div class="mx-auto mb-4 w-16 h-16 rounded-2xl bg-violet-100 flex items-center justify-center">
+              <svg class="w-7 h-7 text-violet-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            </div>
+            <h3 class="serif text-lg">No events yet</h3>
+            <p class="text-sm text-ink-500 mt-1">Activity will start showing as you use the app.</p>
+          </div>
+        </div>
       </section>
 
       <!-- ============ SETTINGS ============ -->
       <section id="view-settings" class="view hidden p-8 max-w-4xl mx-auto fade-in">
-        <h1 class="serif text-3xl mb-6">Commission &amp; Settings</h1>
+        <div class="flex items-start justify-between mb-6">
+          <div>
+            <h1 class="serif text-3xl">Commission &amp; Settings</h1>
+            <p class="text-ink-500 mt-1 text-sm">Your notarial commission and dispatch defaults.</p>
+          </div>
+          <button id="btn-save-settings" class="bg-violet-600 text-white px-5 py-2.5 rounded-lg hover:bg-violet-700 font-medium text-sm">Save changes</button>
+        </div>
 
         <div class="bg-white rounded-xl border border-ink-100 p-6 mb-6">
           <h3 class="serif text-lg mb-4">Notarial Commission</h3>
           <div class="grid grid-cols-2 gap-4 text-sm">
-            <div><label class="text-xs uppercase tracking-wider text-ink-500">Full Name</label><input id="s-full-name" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg"></div>
-            <div><label class="text-xs uppercase tracking-wider text-ink-500">Roll of Attorneys No.</label><input id="s-roll" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg"></div>
-            <div><label class="text-xs uppercase tracking-wider text-ink-500">IBP Lifetime Member No.</label><input id="s-ibp" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg"></div>
-            <div><label class="text-xs uppercase tracking-wider text-ink-500">PTR No.</label><input id="s-ptr" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg"></div>
-            <div><label class="text-xs uppercase tracking-wider text-ink-500">MCLE Compliance No.</label><input id="s-mcle" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg"></div>
-            <div><label class="text-xs uppercase tracking-wider text-ink-500">Commission Expiry</label><input id="s-expiry" type="date" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg"></div>
-            <div class="col-span-2"><label class="text-xs uppercase tracking-wider text-ink-500">Territorial Jurisdiction</label><input id="s-jurisdiction" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg"></div>
+            <div><label class="text-xs font-medium uppercase tracking-wider text-ink-700">Full Name</label><input id="s-full-name" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none"></div>
+            <div><label class="text-xs font-medium uppercase tracking-wider text-ink-700">Roll of Attorneys No.</label><input id="s-roll" placeholder="e.g. 54321" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none"></div>
+            <div><label class="text-xs font-medium uppercase tracking-wider text-ink-700">IBP Lifetime Member No.</label><input id="s-ibp" placeholder="e.g. 12345" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none"></div>
+            <div><label class="text-xs font-medium uppercase tracking-wider text-ink-700">PTR No.</label><input id="s-ptr" placeholder="e.g. 9876543" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none"></div>
+            <div><label class="text-xs font-medium uppercase tracking-wider text-ink-700">MCLE Compliance No.</label><input id="s-mcle" placeholder="e.g. VI-0012345" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none"></div>
+            <div><label class="text-xs font-medium uppercase tracking-wider text-ink-700">Commission Expiry</label><input id="s-expiry" type="date" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none"></div>
+            <div class="col-span-2"><label class="text-xs font-medium uppercase tracking-wider text-ink-700">Territorial Jurisdiction</label><input id="s-jurisdiction" placeholder="e.g. Pasig City — RTC NCJR" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none"></div>
           </div>
         </div>
 
         <div class="bg-white rounded-xl border border-ink-100 p-6 mb-6">
           <h3 class="serif text-lg mb-4">Email Dispatch</h3>
           <div class="space-y-4 text-sm">
-            <div><label class="text-xs uppercase tracking-wider text-ink-500">Office of the Clerk of Court (OCS) Email</label><input id="s-ocs" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg" placeholder="ocs.yourcity@judiciary.gov.ph"></div>
-            <div><label class="text-xs uppercase tracking-wider text-ink-500">Firm BCC Archive</label><input id="s-archive" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg" placeholder="archive@yourfirm.ph"></div>
+            <div><label class="text-xs font-medium uppercase tracking-wider text-ink-700">Office of the Clerk of Court Email</label><input id="s-ocs" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none" placeholder="ocs.yourcity@judiciary.gov.ph"></div>
+            <div><label class="text-xs font-medium uppercase tracking-wider text-ink-700">Firm BCC Archive</label><input id="s-archive" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none" placeholder="archive@yourfirm.ph"></div>
           </div>
         </div>
 
         <div class="bg-white rounded-xl border border-ink-100 p-6 mb-6">
           <h3 class="serif text-lg mb-4">Filename Convention</h3>
-          <p class="text-sm text-ink-500 mb-3">Tokens: <code class="bg-ink-50 px-1 rounded">{date}</code>, <code class="bg-ink-50 px-1 rounded">{type}</code>, <code class="bg-ink-50 px-1 rounded">{principal}</code>, <code class="bg-ink-50 px-1 rounded">{doc_no}</code>, <code class="bg-ink-50 px-1 rounded">{page}</code>, <code class="bg-ink-50 px-1 rounded">{book}</code>, <code class="bg-ink-50 px-1 rounded">{year}</code>.</p>
-          <input id="s-pattern" class="w-full px-3 py-2 border border-ink-200 rounded-lg font-mono text-xs">
-        </div>
-
-        <div class="flex justify-end">
-          <button id="btn-save-settings" class="bg-ink-900 text-gold-100 px-5 py-2.5 rounded-lg hover:bg-ink-800 font-medium text-sm">Save settings</button>
+          <p class="text-sm text-ink-500 mb-3">Tokens: <code class="bg-ink-50 px-1 rounded mono">{date}</code>, <code class="bg-ink-50 px-1 rounded mono">{type}</code>, <code class="bg-ink-50 px-1 rounded mono">{principal}</code>, <code class="bg-ink-50 px-1 rounded mono">{doc_no}</code>, <code class="bg-ink-50 px-1 rounded mono">{page}</code>, <code class="bg-ink-50 px-1 rounded mono">{book}</code>, <code class="bg-ink-50 px-1 rounded mono">{year}</code>.</p>
+          <input id="s-pattern" class="w-full px-3 py-2 border border-ink-200 rounded-lg mono text-xs focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none">
         </div>
       </section>
 
