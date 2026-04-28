@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>eNotaryo — Local Demo</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: { extend: {
+      colors: {
+        ink: { 50:'#f5f6fa', 100:'#e8eaf2', 200:'#cfd3e4', 300:'#a8aecc', 400:'#7c83b0', 500:'#575e93', 600:'#414778', 700:'#343965', 800:'#262a4a', 900:'#161930' },
+        gold: { 50:'#fdf8ed', 100:'#f9eac7', 200:'#f1d287', 300:'#e8b955', 400:'#dba036', 500:'#c0851f', 600:'#9a6717', 700:'#7a5215', 800:'#5d3f15', 900:'#3f2c11' }
+      },
+      fontFamily: {
+        serif: ['"Source Serif 4"', 'Georgia', 'serif'],
+        sans: ['Inter', 'ui-sans-serif', 'system-ui']
+      }
+    }}
+  };
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Inter', system-ui, sans-serif; }
+  .serif { font-family: 'Source Serif 4', Georgia, serif; }
+  .seal {
+    width: 64px; height: 64px; border-radius: 9999px;
+    border: 2px solid #c0851f;
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle, #fdf8ed 0%, #f9eac7 100%);
+    color: #5d3f15; font-weight: 700; letter-spacing: 0.05em;
+    box-shadow: 0 0 0 3px #fdf8ed inset, 0 4px 12px rgba(192,133,31,0.15);
+  }
+  .nav-item.active { background: #262a4a; color: #f9eac7; }
+  .nav-item.active .nav-icon { color: #e8b955; }
+  .step-dot.active { background: #c0851f; color: white; }
+  .step-dot.done { background: #16a34a; color: white; }
+  .step-dot { background: #e8eaf2; color: #575e93; }
+  .step-line.done { background: #16a34a; }
+  .fade-in { animation: fadeIn 0.35s ease-out; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  .scan-line {
+    background: linear-gradient(180deg, transparent 0%, rgba(192,133,31,0.4) 50%, transparent 100%);
+    height: 4px; position: absolute; left:0; right:0;
+    animation: scan 1.6s linear infinite;
+  }
+  @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
+  .toast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 100;
+    background: #262a4a; color: #f9eac7;
+    padding: 14px 20px; border-radius: 10px;
+    box-shadow: 0 10px 25px rgba(22,25,48,0.25);
+    transform: translateY(80px); opacity: 0;
+    transition: all 0.3s ease;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #cfd3e4; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #a8aecc; }
+  details > summary { list-style: none; cursor: pointer; }
+  details > summary::-webkit-details-marker { display: none; }
+  .demo-banner {
+    background: linear-gradient(90deg, #5d3f15 0%, #c0851f 100%);
+    color: #fdf8ed;
+  }
+</style>
+</head>
+<body class="bg-ink-50 text-ink-900 min-h-screen">
+
+<!-- Demo banner -->
+<div class="demo-banner text-xs px-4 py-2 flex items-center justify-between">
+  <div class="flex items-center gap-2">
+    <span class="font-semibold uppercase tracking-wider">Local Demo</span>
+    <span class="opacity-80">— data persists in this browser only. No server, no Supabase, no internet calls beyond fonts.</span>
+  </div>
+  <button id="btn-reset" class="text-gold-100 hover:text-white underline underline-offset-2">Reset demo data</button>
+</div>
+
+<!-- ============ LOGIN / SIGNUP SCREEN ============ -->
+<div id="screen-login" class="min-h-[calc(100vh-32px)] flex items-center justify-center px-4">
+  <div class="max-w-md w-full">
+    <div class="text-center mb-8">
+      <div class="seal mx-auto mb-4">
+        <svg viewBox="0 0 32 32" class="w-7 h-7" fill="currentColor">
+          <path d="M16 2L4 8v9c0 7 5 12 12 13 7-1 12-6 12-13V8L16 2z"/>
+          <path d="M11 16l3 3 7-7" stroke="#fdf8ed" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <h1 class="serif text-4xl text-ink-900">eNotaryo</h1>
+      <p class="text-ink-500 mt-2 text-sm">Compliant Electronic Notarization for Philippine Lawyers</p>
+      <p class="text-xs text-ink-400 mt-1">Aligned with A.M. No. 24-10-14-SC · Rules on Electronic Notarization</p>
+    </div>
+
+    <div id="auth-login" class="bg-white rounded-2xl shadow-xl p-8 border border-ink-100">
+      <h2 class="serif text-xl mb-1">Sign in</h2>
+      <p class="text-sm text-ink-500 mb-6">Use the demo account or create your own — credentials are stored only in this browser.</p>
+      <div class="space-y-4">
+        <div>
+          <label class="text-xs font-medium text-ink-700 uppercase tracking-wider">Email</label>
+          <input id="login-email" type="email" placeholder="atty@yourfirm.ph" class="mt-1 w-full px-4 py-2.5 border border-ink-200 rounded-lg focus:ring-2 focus:ring-gold-300 focus:border-gold-400 outline-none">
+        </div>
+        <div>
+          <label class="text-xs font-medium text-ink-700 uppercase tracking-wider">Password</label>
+          <input id="login-password" type="password" class="mt-1 w-full px-4 py-2.5 border border-ink-200 rounded-lg focus:ring-2 focus:ring-gold-300 focus:border-gold-400 outline-none">
+        </div>
+        <p id="login-error" class="text-xs text-rose-600 min-h-[1em]"></p>
+        <button id="btn-login" class="w-full bg-ink-900 text-gold-100 font-medium py-3 rounded-lg hover:bg-ink-800 transition">Sign in</button>
+        <button id="btn-quick-demo" class="w-full border border-gold-300 text-gold-700 hover:bg-gold-50 font-medium py-3 rounded-lg transition text-sm">Skip — sign me in as demo lawyer</button>
+        <p class="text-center text-xs text-ink-500">No account yet? <button id="btn-show-signup" class="text-gold-700 hover:text-gold-800 font-medium">Create one</button></p>
+      </div>
+    </div>
+
+    <div id="auth-signup" class="hidden bg-white rounded-2xl shadow-xl p-8 border border-ink-100">
+      <h2 class="serif text-xl mb-1">Create your account</h2>
+      <p class="text-sm text-ink-500 mb-6">Stored locally in this browser only.</p>
+      <div class="space-y-4">
+        <div>
+          <label class="text-xs font-medium text-ink-700 uppercase tracking-wider">Full Name</label>
+          <input id="signup-name" type="text" placeholder="Atty. Juan A. dela Cruz" class="mt-1 w-full px-4 py-2.5 border border-ink-200 rounded-lg focus:ring-2 focus:ring-gold-300 focus:border-gold-400 outline-none">
+        </div>
+        <div>
+          <label class="text-xs font-medium text-ink-700 uppercase tracking-wider">Email</label>
+          <input id="signup-email" type="email" class="mt-1 w-full px-4 py-2.5 border border-ink-200 rounded-lg focus:ring-2 focus:ring-gold-300 focus:border-gold-400 outline-none">
+        </div>
+        <div>
+          <label class="text-xs font-medium text-ink-700 uppercase tracking-wider">Password</label>
+          <input id="signup-password" type="password" class="mt-1 w-full px-4 py-2.5 border border-ink-200 rounded-lg focus:ring-2 focus:ring-gold-300 focus:border-gold-400 outline-none">
+        </div>
+        <p id="signup-error" class="text-xs text-rose-600 min-h-[1em]"></p>
+        <button id="btn-signup" class="w-full bg-ink-900 text-gold-100 font-medium py-3 rounded-lg hover:bg-ink-800 transition">Create account</button>
+        <p class="text-center text-xs text-ink-500">Already have one? <button id="btn-show-login" class="text-gold-700 hover:text-gold-800 font-medium">Sign in</button></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ APP SHELL ============ -->
+<div id="screen-app" class="hidden min-h-[calc(100vh-32px)]">
+  <div class="flex min-h-[calc(100vh-32px)]">
+
+    <aside class="w-64 bg-ink-900 text-ink-100 flex flex-col">
+      <div class="px-6 py-5 border-b border-ink-800 flex items-center gap-3">
+        <div class="w-9 h-9 rounded-full border border-gold-400 flex items-center justify-center bg-ink-800">
+          <svg viewBox="0 0 32 32" class="w-5 h-5 text-gold-300" fill="currentColor"><path d="M16 2L4 8v9c0 7 5 12 12 13 7-1 12-6 12-13V8L16 2z"/></svg>
+        </div>
+        <div>
+          <div class="serif text-lg text-white">eNotaryo</div>
+          <div class="text-[10px] text-ink-400 uppercase tracking-wider">Demo</div>
+        </div>
+      </div>
+
+      <nav class="flex-1 p-3 space-y-1 text-sm">
+        <button data-view="dashboard" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-ink-800 transition text-left">
+          <svg class="nav-icon w-5 h-5 text-ink-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg>
+          <span>Dashboard</span>
+        </button>
+        <button data-view="new" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-ink-800 transition text-left">
+          <svg class="nav-icon w-5 h-5 text-ink-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          <span>New Notarization</span>
+        </button>
+        <button data-view="register" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-ink-800 transition text-left">
+          <svg class="nav-icon w-5 h-5 text-ink-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16v16H4zM4 9h16M9 4v16"/></svg>
+          <span>Notarial Register</span>
+        </button>
+        <button data-view="outbox" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-ink-800 transition text-left">
+          <svg class="nav-icon w-5 h-5 text-ink-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 8l9 6 9-6M3 8v10a2 2 0 002 2h14a2 2 0 002-2V8M3 8l9-5 9 5"/></svg>
+          <span>Email Outbox</span>
+          <span id="outbox-badge" class="ml-auto text-[10px] bg-gold-400 text-ink-900 px-1.5 py-0.5 rounded-full font-semibold hidden">0</span>
+        </button>
+        <button data-view="audit" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-ink-800 transition text-left">
+          <svg class="nav-icon w-5 h-5 text-ink-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 2M12 22a10 10 0 110-20 10 10 0 010 20z"/></svg>
+          <span>Audit Log</span>
+        </button>
+        <button data-view="settings" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-ink-800 transition text-left">
+          <svg class="nav-icon w-5 h-5 text-ink-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          <span>Commission &amp; Settings</span>
+        </button>
+      </nav>
+
+      <div class="p-4 border-t border-ink-800">
+        <div class="flex items-center gap-2 mt-3 px-1">
+          <div id="profile-initials" class="w-8 h-8 rounded-full bg-gold-400 text-ink-900 flex items-center justify-center text-xs font-semibold">—</div>
+          <div class="flex-1 min-w-0">
+            <div id="profile-name" class="text-xs font-medium truncate">—</div>
+            <div id="profile-meta" class="text-[10px] text-ink-400 truncate">—</div>
+          </div>
+          <button id="btn-signout" title="Sign out" class="text-ink-400 hover:text-gold-300">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <main class="flex-1 overflow-x-hidden">
+
+      <!-- DASHBOARD -->
+      <section id="view-dashboard" class="view p-8 max-w-6xl mx-auto fade-in">
+        <div class="flex items-start justify-between mb-8">
+          <div>
+            <p class="text-sm text-ink-500" id="today-date">—</p>
+            <h1 class="serif text-3xl mt-1" id="greeting">Welcome back.</h1>
+            <p class="text-ink-500 mt-1 text-sm">Your local notarial activity.</p>
+          </div>
+          <button data-view="new" class="bg-ink-900 text-gold-100 px-5 py-2.5 rounded-lg hover:bg-ink-800 transition flex items-center gap-2 font-medium text-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+            New Notarization
+          </button>
+        </div>
+
+        <div class="grid grid-cols-4 gap-4 mb-8">
+          <div class="bg-white rounded-xl p-5 border border-ink-100">
+            <div class="text-xs uppercase tracking-wider text-ink-500">Notarized today</div>
+            <div class="serif text-3xl mt-2" id="kpi-today">0</div>
+          </div>
+          <div class="bg-white rounded-xl p-5 border border-ink-100">
+            <div class="text-xs uppercase tracking-wider text-ink-500">This month</div>
+            <div class="serif text-3xl mt-2" id="kpi-month">0</div>
+          </div>
+          <div class="bg-white rounded-xl p-5 border border-ink-100">
+            <div class="text-xs uppercase tracking-wider text-ink-500">Pending dispatch</div>
+            <div class="serif text-3xl mt-2" id="kpi-pending">0</div>
+          </div>
+          <div class="bg-white rounded-xl p-5 border border-ink-100">
+            <div class="text-xs uppercase tracking-wider text-ink-500">Audit events</div>
+            <div class="serif text-3xl mt-2" id="kpi-audit">0</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-6">
+          <div class="col-span-2 bg-white rounded-xl border border-ink-100">
+            <div class="p-5 border-b border-ink-100 flex items-center justify-between">
+              <h3 class="serif text-lg">Recent Activity</h3>
+              <button data-view="register" class="text-xs text-ink-500 hover:text-ink-900">See all</button>
+            </div>
+            <div class="divide-y divide-ink-100" id="recent-activity"></div>
+          </div>
+          <div class="bg-white rounded-xl border border-ink-100 p-5">
+            <h3 class="serif text-lg mb-4">Quick Actions</h3>
+            <div class="space-y-2">
+              <button data-view="new" class="w-full text-left p-3 rounded-lg border border-ink-100 hover:border-gold-300 hover:bg-gold-50 transition">
+                <div class="text-sm font-medium">Notarize a new document</div>
+                <div class="text-xs text-ink-500 mt-0.5">Upload, OCR, log, dispatch</div>
+              </button>
+              <button data-view="register" class="w-full text-left p-3 rounded-lg border border-ink-100 hover:border-gold-300 hover:bg-gold-50 transition">
+                <div class="text-sm font-medium">View Notarial Register</div>
+                <div class="text-xs text-ink-500 mt-0.5">Search, filter, scan</div>
+              </button>
+              <button data-view="outbox" class="w-full text-left p-3 rounded-lg border border-ink-100 hover:border-gold-300 hover:bg-gold-50 transition">
+                <div class="text-sm font-medium">Review email outbox</div>
+                <div class="text-xs text-ink-500 mt-0.5">Auto-drafted dispatches</div>
+              </button>
+              <button data-view="audit" class="w-full text-left p-3 rounded-lg border border-ink-100 hover:border-gold-300 hover:bg-gold-50 transition">
+                <div class="text-sm font-medium">View audit log</div>
+                <div class="text-xs text-ink-500 mt-0.5">Every action timestamped</div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- NEW NOTARIZATION WIZARD -->
+      <section id="view-new" class="view hidden p-8 max-w-5xl mx-auto fade-in">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h1 class="serif text-3xl">New Notarization</h1>
+            <p class="text-ink-500 mt-1 text-sm">Upload a PDF (or use a sample). We'll OCR-extract, log, and queue dispatch.</p>
+          </div>
+          <button data-view="dashboard" class="text-sm text-ink-500 hover:text-ink-900">← Back to dashboard</button>
+        </div>
+
+        <div class="flex items-center mb-8 px-2">
+          <div class="flex items-center gap-2"><div id="step-dot-1" class="step-dot active w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold">1</div><span class="text-sm font-medium">Upload</span></div>
+          <div id="step-line-1" class="step-line flex-1 h-0.5 bg-ink-200 mx-3"></div>
+          <div class="flex items-center gap-2"><div id="step-dot-2" class="step-dot w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold">2</div><span class="text-sm font-medium text-ink-500">Verify</span></div>
+          <div id="step-line-2" class="step-line flex-1 h-0.5 bg-ink-200 mx-3"></div>
+          <div class="flex items-center gap-2"><div id="step-dot-3" class="step-dot w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold">3</div><span class="text-sm font-medium text-ink-500">Log</span></div>
+          <div id="step-line-3" class="step-line flex-1 h-0.5 bg-ink-200 mx-3"></div>
+          <div class="flex items-center gap-2"><div id="step-dot-4" class="step-dot w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold">4</div><span class="text-sm font-medium text-ink-500">Dispatch</span></div>
+        </div>
+
+        <div id="wiz-step-1" class="bg-white rounded-xl border border-ink-100 p-8">
+          <h2 class="serif text-xl mb-2">Upload notarized PDF</h2>
+          <p class="text-sm text-ink-500 mb-6">PDF or PDF/A. The file lives in your browser's local storage for this demo.</p>
+          <label for="file-input" class="block border-2 border-dashed border-ink-200 rounded-xl p-12 text-center cursor-pointer hover:border-gold-400 hover:bg-gold-50 transition">
+            <svg class="w-12 h-12 mx-auto text-ink-400 mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 4v12m0-12l-4 4m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+            <div class="text-base font-medium">Drop your PDF here or click to browse</div>
+            <div class="text-xs text-ink-500 mt-1">We'll auto-detect document type, principals, and contact emails (stub OCR).</div>
+          </label>
+          <input id="file-input" type="file" accept="application/pdf,.pdf" class="hidden">
+          <div class="mt-6">
+            <p class="text-xs uppercase tracking-wider text-ink-500 mb-3">Or try a sample document</p>
+            <div class="grid grid-cols-3 gap-3">
+              <button data-sample="0" class="text-left border border-ink-100 hover:border-gold-300 hover:bg-gold-50 rounded-lg p-3 transition">
+                <div class="text-sm font-medium">Affidavit of Loss</div>
+                <div class="text-xs text-ink-500 mt-0.5">Single principal · 1 page</div>
+              </button>
+              <button data-sample="1" class="text-left border border-ink-100 hover:border-gold-300 hover:bg-gold-50 rounded-lg p-3 transition">
+                <div class="text-sm font-medium">Deed of Absolute Sale</div>
+                <div class="text-xs text-ink-500 mt-0.5">2 principals · 4 pages</div>
+              </button>
+              <button data-sample="2" class="text-left border border-ink-100 hover:border-gold-300 hover:bg-gold-50 rounded-lg p-3 transition">
+                <div class="text-sm font-medium">Special Power of Attorney</div>
+                <div class="text-xs text-ink-500 mt-0.5">Principal + attorney-in-fact · 2 pages</div>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="wiz-step-2" class="hidden bg-white rounded-xl border border-ink-100 p-8">
+          <h2 class="serif text-xl mb-2">Verify extracted data</h2>
+          <p class="text-sm text-ink-500 mb-6">Confirm or edit before logging to the Register.</p>
+          <div class="grid grid-cols-5 gap-6">
+            <div class="col-span-2">
+              <div class="relative bg-ink-50 border border-ink-200 rounded-lg overflow-hidden">
+                <div id="pdf-scanning" class="aspect-[3/4] relative">
+                  <div class="scan-line"></div>
+                  <div class="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-white/60">
+                    <div class="text-sm font-medium text-ink-700">Reading document…</div>
+                    <div class="text-xs text-ink-500">Detecting seal · Extracting principals · Parsing emails</div>
+                  </div>
+                </div>
+                <div id="pdf-rendered" class="hidden aspect-[3/4] p-6 bg-white text-[10px] leading-relaxed font-serif text-ink-800 overflow-hidden">
+                  <div class="text-center font-bold mb-2 text-xs" id="prev-title">DOCUMENT</div>
+                  <p>REPUBLIC OF THE PHILIPPINES }</p>
+                  <p>CITY OF _______________ } S.S.</p>
+                  <p class="mt-2">I, <span id="prev-name">—</span>, of legal age, Filipino, after having been duly sworn in accordance with law, do hereby depose and state…</p>
+                  <p class="mt-2">Email: <span id="prev-email" class="underline">—</span></p>
+                  <div class="mt-4 flex justify-end items-end"><div class="seal" style="width:54px;height:54px;font-size:9px;">SEAL</div></div>
+                  <p class="mt-3 text-[9px]">SUBSCRIBED AND SWORN to before me this <strong id="prev-date">—</strong>.</p>
+                </div>
+              </div>
+              <div class="mt-3 flex items-center gap-2 text-xs">
+                <span class="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full font-medium">Notarial seal detected</span>
+                <span class="text-ink-500">stub OCR · 95% confidence</span>
+              </div>
+            </div>
+            <div class="col-span-3 space-y-4">
+              <div class="grid grid-cols-2 gap-4">
+                <div><label class="text-xs font-medium uppercase tracking-wider text-ink-700">Document Type</label><input id="ext-type" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg text-sm"></div>
+                <div><label class="text-xs font-medium uppercase tracking-wider text-ink-700">Notarial Act</label>
+                  <select id="ext-act" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg text-sm bg-white">
+                    <option>Jurat</option><option>Acknowledgment</option><option>Oath / Affirmation</option><option>Copy Certification</option><option>Signature Witnessing</option>
+                  </select>
+                </div>
+              </div>
+              <div><label class="text-xs font-medium uppercase tracking-wider text-ink-700">Principal(s)</label><div id="ext-principals" class="mt-1 space-y-2"></div></div>
+              <div class="grid grid-cols-2 gap-4">
+                <div><label class="text-xs font-medium uppercase tracking-wider text-ink-700">Date Notarized</label><input id="ext-date" type="date" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg text-sm"></div>
+                <div><label class="text-xs font-medium uppercase tracking-wider text-ink-700">Notarial Fee (₱)</label><input id="ext-fee" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg text-sm"></div>
+              </div>
+              <div><label class="text-xs font-medium uppercase tracking-wider text-ink-700">Email recipients detected</label><div id="ext-emails" class="mt-1 flex flex-wrap gap-2"></div></div>
+            </div>
+          </div>
+          <div class="flex justify-between mt-8 pt-6 border-t border-ink-100">
+            <button data-wiz-back="1" class="text-sm text-ink-500 hover:text-ink-900">← Back</button>
+            <button data-wiz-next="3" class="bg-ink-900 text-gold-100 px-5 py-2.5 rounded-lg hover:bg-ink-800 transition font-medium text-sm">Confirm and continue →</button>
+          </div>
+        </div>
+
+        <div id="wiz-step-3" class="hidden bg-white rounded-xl border border-ink-100 p-8">
+          <h2 class="serif text-xl mb-2">Log to Notarial Register</h2>
+          <p class="text-sm text-ink-500 mb-6">We'll insert the entry, advance your counters, and generate the SC-style filename.</p>
+          <div class="grid grid-cols-2 gap-6">
+            <div class="bg-ink-50 rounded-lg p-5 border border-ink-100">
+              <div class="text-xs uppercase tracking-wider text-ink-500 mb-3">Notarial Register Entry</div>
+              <table class="w-full text-sm"><tbody class="divide-y divide-ink-200">
+                <tr><td class="py-2 text-ink-500">Document No.</td><td class="py-2 text-right font-medium" id="reg-doc">—</td></tr>
+                <tr><td class="py-2 text-ink-500">Page No.</td><td class="py-2 text-right font-medium" id="reg-page">—</td></tr>
+                <tr><td class="py-2 text-ink-500">Book No.</td><td class="py-2 text-right font-medium" id="reg-book">—</td></tr>
+                <tr><td class="py-2 text-ink-500">Series of</td><td class="py-2 text-right font-medium" id="reg-series">—</td></tr>
+                <tr><td class="py-2 text-ink-500">Date</td><td class="py-2 text-right font-medium" id="reg-date">—</td></tr>
+                <tr><td class="py-2 text-ink-500">Principal</td><td class="py-2 text-right font-medium" id="reg-principal">—</td></tr>
+                <tr><td class="py-2 text-ink-500">Document Type</td><td class="py-2 text-right font-medium" id="reg-type">—</td></tr>
+                <tr><td class="py-2 text-ink-500">Notarial Fee</td><td class="py-2 text-right font-medium" id="reg-fee-display">—</td></tr>
+              </tbody></table>
+            </div>
+            <div>
+              <div class="text-xs uppercase tracking-wider text-ink-500 mb-3">Auto-generated filename</div>
+              <div class="bg-ink-900 text-gold-100 rounded-lg p-4 font-mono text-xs break-all" id="filename-preview">—</div>
+              <p class="text-xs text-ink-500 mt-2">Pattern is configurable in Settings.</p>
+              <div class="mt-5 bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+                <div class="text-sm font-medium text-emerald-900">Compliance checks</div>
+                <ul class="text-xs text-emerald-800 mt-1 space-y-0.5">
+                  <li>· PDF metadata stored locally</li>
+                  <li>· Sequential entry assigned</li>
+                  <li>· Counters will advance after commit</li>
+                  <li>· Audit log will record this action</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="flex justify-between mt-8 pt-6 border-t border-ink-100">
+            <button data-wiz-back="2" class="text-sm text-ink-500 hover:text-ink-900">← Back</button>
+            <button id="btn-commit-register" class="bg-ink-900 text-gold-100 px-5 py-2.5 rounded-lg hover:bg-ink-800 transition font-medium text-sm">Log to Register & Continue →</button>
+          </div>
+        </div>
+
+        <div id="wiz-step-4" class="hidden bg-white rounded-xl border border-ink-100 p-8">
+          <h2 class="serif text-xl mb-2">Dispatch notarized PDF</h2>
+          <p class="text-sm text-ink-500 mb-6">Auto-drafted emails. They'll be saved to the Email Outbox in this demo.</p>
+          <div id="dispatch-emails" class="space-y-4"></div>
+          <div class="flex justify-between mt-8 pt-6 border-t border-ink-100">
+            <button id="btn-queue-batch" class="text-sm text-ink-700 hover:text-ink-900 border border-ink-200 px-4 py-2 rounded-lg">Queue for batch dispatch</button>
+            <button id="btn-send-now" class="bg-ink-900 text-gold-100 px-5 py-2.5 rounded-lg hover:bg-ink-800 transition font-medium text-sm">Queue for immediate send</button>
+          </div>
+        </div>
+
+        <div id="wiz-step-5" class="hidden bg-white rounded-xl border border-ink-100 p-12 text-center">
+          <div class="seal mx-auto mb-5" style="width:80px;height:80px;">
+            <svg viewBox="0 0 32 32" class="w-9 h-9" fill="currentColor"><path d="M16 2L4 8v9c0 7 5 12 12 13 7-1 12-6 12-13V8L16 2z"/><path d="M11 16l3 3 7-7" stroke="#fdf8ed" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <h2 class="serif text-2xl mb-2">Notarization complete.</h2>
+          <p class="text-ink-500 mb-1"><strong id="done-doc-no">—</strong></p>
+          <p class="text-sm text-ink-500" id="done-summary">—</p>
+          <div class="flex items-center justify-center gap-3 mt-8">
+            <button data-view="register" class="border border-ink-200 px-4 py-2.5 rounded-lg text-sm hover:bg-ink-50">View in Register</button>
+            <button id="btn-new-another" class="bg-ink-900 text-gold-100 px-5 py-2.5 rounded-lg hover:bg-ink-800 text-sm font-medium">Notarize another</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- REGISTER -->
+      <section id="view-register" class="view hidden p-8 max-w-7xl mx-auto fade-in">
+        <div class="flex items-start justify-between mb-6">
+          <div>
+            <h1 class="serif text-3xl">Digital Notarial Register</h1>
+            <p class="text-ink-500 mt-1 text-sm">Live from your local storage.</p>
+          </div>
+          <div class="flex gap-2">
+            <button id="btn-export-register" class="border border-ink-200 px-4 py-2.5 rounded-lg text-sm hover:bg-ink-50">Export CSV</button>
+            <button data-view="new" class="bg-ink-900 text-gold-100 px-4 py-2.5 rounded-lg text-sm hover:bg-ink-800 font-medium">+ New Entry</button>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl border border-ink-100 overflow-hidden">
+          <div class="p-4 border-b border-ink-100 flex items-center gap-3">
+            <input id="reg-search" placeholder="Search principal, doc type, doc no…" class="flex-1 max-w-sm px-3 py-2 border border-ink-200 rounded-lg text-sm">
+            <select id="reg-filter-type" class="border border-ink-200 rounded-lg text-sm px-3 py-2 bg-white">
+              <option value="">All document types</option>
+              <option>Affidavit of Loss</option><option>Deed of Absolute Sale</option><option>Special Power of Attorney</option>
+              <option>Acknowledgment</option><option>Verification &amp; Cert. of Non-Forum Shopping</option><option>Jurat</option>
+            </select>
+            <input id="reg-filter-month" type="month" class="border border-ink-200 rounded-lg text-sm px-3 py-2 bg-white">
+          </div>
+          <table class="w-full text-sm">
+            <thead class="bg-ink-50 text-ink-500 text-xs uppercase tracking-wider">
+              <tr><th class="text-left px-4 py-3">Doc No.</th><th class="text-left px-4 py-3">Date</th><th class="text-left px-4 py-3">Document Type</th><th class="text-left px-4 py-3">Principal(s)</th><th class="text-left px-4 py-3">Pg.</th><th class="text-right px-4 py-3">Fee</th><th class="text-left px-4 py-3">Status</th><th class="text-right px-4 py-3">Book / Year</th></tr>
+            </thead>
+            <tbody id="register-tbody" class="divide-y divide-ink-100"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- OUTBOX -->
+      <section id="view-outbox" class="view hidden p-8 max-w-5xl mx-auto fade-in">
+        <h1 class="serif text-3xl mb-6">Email Outbox</h1>
+        <div id="outbox-list" class="space-y-3"></div>
+      </section>
+
+      <!-- AUDIT -->
+      <section id="view-audit" class="view hidden p-8 max-w-5xl mx-auto fade-in">
+        <h1 class="serif text-3xl mb-6">Audit Log</h1>
+        <p class="text-ink-500 text-sm mb-4">Every login, file upload, register entry, profile change, and email queued is timestamped here.</p>
+        <div id="audit-list" class="bg-white rounded-xl border border-ink-100 divide-y divide-ink-100"></div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section id="view-settings" class="view hidden p-8 max-w-4xl mx-auto fade-in">
+        <h1 class="serif text-3xl mb-6">Commission &amp; Settings</h1>
+        <div class="bg-white rounded-xl border border-ink-100 p-6 mb-6">
+          <h3 class="serif text-lg mb-4">Notarial Commission</h3>
+          <div class="grid grid-cols-2 gap-4 text-sm">
+            <div><label class="text-xs uppercase tracking-wider text-ink-500">Full Name</label><input id="s-full-name" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg"></div>
+            <div><label class="text-xs uppercase tracking-wider text-ink-500">Roll of Attorneys No.</label><input id="s-roll" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg"></div>
+            <div><label class="text-xs uppercase tracking-wider text-ink-500">IBP Lifetime Member No.</label><input id="s-ibp" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg"></div>
+            <div><label class="text-xs uppercase tracking-wider text-ink-500">PTR No.</label><input id="s-ptr" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg"></div>
+            <div><label class="text-xs uppercase tracking-wider text-ink-500">MCLE Compliance No.</label><input id="s-mcle" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg"></div>
+            <div><label class="text-xs uppercase tracking-wider text-ink-500">Commission Expiry</label><input id="s-expiry" type="date" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg"></div>
+            <div class="col-span-2"><label class="text-xs uppercase tracking-wider text-ink-500">Territorial Jurisdiction</label><input id="s-jurisdiction" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg" placeholder="e.g. Pasig City — RTC NCJR"></div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl border border-ink-100 p-6 mb-6">
+          <h3 class="serif text-lg mb-4">Email Dispatch</h3>
+          <div class="space-y-4 text-sm">
+            <div><label class="text-xs uppercase tracking-wider text-ink-500">Office of the Clerk of Court (OCS) Email</label><input id="s-ocs" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg" placeholder="ocs.yourcity@judiciary.gov.ph"></div>
+            <div><label class="text-xs uppercase tracking-wider text-ink-500">Firm BCC Archive</label><input id="s-archive" class="mt-1 w-full px-3 py-2 border border-ink-200 rounded-lg" placeholder="archive@yourfirm.ph"></div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl border border-ink-100 p-6 mb-6">
+          <h3 class="serif text-lg mb-4">Filename Convention</h3>
+          <p class="text-sm text-ink-500 mb-3">Tokens: <code class="bg-ink-50 px-1 rounded">{date}</code>, <code class="bg-ink-50 px-1 rounded">{type}</code>, <code class="bg-ink-50 px-1 rounded">{principal}</code>, <code class="bg-ink-50 px-1 rounded">{doc_no}</code>, <code class="bg-ink-50 px-1 rounded">{page}</code>, <code class="bg-ink-50 px-1 rounded">{book}</code>, <code class="bg-ink-50 px-1 rounded">{year}</code>.</p>
+          <input id="s-pattern" class="w-full px-3 py-2 border border-ink-200 rounded-lg font-mono text-xs">
+        </div>
+        <div class="flex justify-end">
+          <button id="btn-save-settings" class="bg-ink-900 text-gold-100 px-5 py-2.5 rounded-lg hover:bg-ink-800 font-medium text-sm">Save settings</button>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+// ============================================================
+// LOCAL BACKEND — localStorage as the database
+// ============================================================
+const PFX = 'enotaryo:';
+const K = {
+  session: PFX + 'session',
+  users: PFX + 'users',
+  lawyers: PFX + 'lawyers',
+  documents: PFX + 'documents',
+  register: PFX + 'register',
+  emails: PFX + 'emails',
+  audit: PFX + 'audit'
+};
+
+const load = (k, fb) => { try { return JSON.parse(localStorage.getItem(k)) ?? fb; } catch { return fb; } };
+const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'u-' + Math.random().toString(36).slice(2));
+const nowIso = () => new Date().toISOString();
+
+// Simple SHA-256 hash so passwords aren't stored in plaintext (still demo-only).
+async function hashPw(pw) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+// ---- Auth ----
+async function dbSignUp(email, password, fullName) {
+  const users = load(K.users, []);
+  if (users.some(u => u.email === email)) throw new Error('Email already registered.');
+  const id = uid();
+  const passwordHash = await hashPw(password);
+  users.push({ id, email, password_hash: passwordHash, full_name: fullName });
+  save(K.users, users);
+  const lawyers = load(K.lawyers, []);
+  lawyers.push({
+    id, full_name: fullName || '', email,
+    roll_number: '', ibp_number: '', ptr_number: '', mcle_number: '',
+    jurisdiction: '', commission_expiry: null,
+    current_book_no: 'I', current_page_no: 1, current_doc_no: 0,
+    series_year: new Date().getFullYear(),
+    ocs_email: '', archive_email: '',
+    filename_pattern: '{date}_{type}_{principal}_Doc-{doc_no}_Page-{page}_Book{book}_{year}.pdf',
+    created_at: nowIso(), updated_at: nowIso()
+  });
+  save(K.lawyers, lawyers);
+  save(K.session, { user: { id, email } });
+  await dbLogAudit('signup', { email });
+  return { user: { id, email } };
+}
+async function dbSignIn(email, password) {
+  const users = load(K.users, []);
+  const u = users.find(x => x.email === email);
+  if (!u) throw new Error('No account with that email.');
+  const hash = await hashPw(password);
+  if (u.password_hash !== hash) throw new Error('Wrong password.');
+  save(K.session, { user: { id: u.id, email: u.email } });
+  await dbLogAudit('login', { email });
+  return { user: { id: u.id, email: u.email } };
+}
+async function dbSignOut() { await dbLogAudit('logout'); localStorage.removeItem(K.session); }
+function dbCurrentUser() { return load(K.session, null)?.user || null; }
+function dbCurrentProfile() {
+  const u = dbCurrentUser(); if (!u) return null;
+  return load(K.lawyers, []).find(x => x.id === u.id) || null;
+}
+async function dbUpdateProfile(fields) {
+  const u = dbCurrentUser(); if (!u) throw new Error('Not authenticated');
+  const lawyers = load(K.lawyers, []);
+  const i = lawyers.findIndex(x => x.id === u.id);
+  if (i === -1) throw new Error('Profile not found');
+  lawyers[i] = { ...lawyers[i], ...fields, updated_at: nowIso() };
+  save(K.lawyers, lawyers);
+  await dbLogAudit('profile_update', { fields: Object.keys(fields) });
+  return lawyers[i];
+}
+
+// ---- Storage / documents ----
+async function dbUploadPdf(file) {
+  const u = dbCurrentUser(); if (!u) throw new Error('Not authenticated');
+  const path = `${u.id}/${Date.now()}_${(file.name||'doc.pdf').replace(/[^A-Za-z0-9._-]+/g, '_').slice(0,120)}`;
+  const docs = load(K.documents, []);
+  const doc = {
+    id: uid(), lawyer_id: u.id, storage_path: path,
+    original_filename: file.name || 'sample.pdf',
+    size_bytes: file.size || 0,
+    mime_type: file.type || 'application/pdf',
+    uploaded_at: nowIso()
+  };
+  docs.push(doc);
+  save(K.documents, docs);
+  await dbLogAudit('file_upload', { path, size: doc.size_bytes, original_filename: doc.original_filename }, { type: 'document', id: doc.id });
+  return { document: doc, signedUrl: 'demo://' + path, path };
+}
+
+// ---- Register ----
+async function dbCreateEntry(input) {
+  const u = dbCurrentUser(); if (!u) throw new Error('Not authenticated');
+  const profile = dbCurrentProfile();
+  const nextDocNo = (profile.current_doc_no || 0) + 1;
+  const nextPageNo = profile.current_page_no || 1;
+  const bookNo = profile.current_book_no || 'I';
+  const seriesYear = profile.series_year || new Date().getFullYear();
+  const filename = generateFilename(profile.filename_pattern, {
+    date: input.notarization_date,
+    type: tokenize(input.document_type),
+    principal: tokenize(firstPrincipal(input.principal)),
+    doc_no: String(nextDocNo).padStart(3, '0'),
+    page: nextPageNo, book: bookNo, year: seriesYear
+  });
+  const entry = {
+    id: uid(), lawyer_id: u.id,
+    document_id: input.document_id || null,
+    doc_no: nextDocNo, page_no: nextPageNo,
+    book_no: bookNo, series_year: seriesYear,
+    document_type: input.document_type,
+    notarial_act: input.notarial_act,
+    principal: input.principal,
+    principal_email: input.principal_email,
+    notarization_date: input.notarization_date,
+    fee: Number(input.fee) || 0,
+    filename, status: 'logged',
+    created_at: nowIso(), updated_at: nowIso()
+  };
+  const all = load(K.register, []);
+  all.push(entry);
+  save(K.register, all);
+  // Advance counters
+  const newPage = (nextDocNo % 5 === 0) ? nextPageNo + 1 : nextPageNo;
+  await dbUpdateProfile({ current_doc_no: nextDocNo, current_page_no: newPage });
+  await dbLogAudit('register_entry_created', { doc_no: nextDocNo, page_no: nextPageNo, document_type: input.document_type }, { type: 'register_entry', id: entry.id });
+  return entry;
+}
+function dbListEntries(opts = {}) {
+  const u = dbCurrentUser(); if (!u) return [];
+  let rows = load(K.register, []).filter(r => r.lawyer_id === u.id)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  if (opts.type) rows = rows.filter(r => r.document_type === opts.type);
+  if (opts.month) rows = rows.filter(r => (r.notarization_date || '').startsWith(opts.month));
+  if (opts.search) {
+    const s = opts.search.toLowerCase();
+    rows = rows.filter(r =>
+      (r.principal || '').toLowerCase().includes(s) ||
+      (r.document_type || '').toLowerCase().includes(s) ||
+      String(r.doc_no).includes(s));
+  }
+  return rows;
+}
+function dbGetStats() {
+  const u = dbCurrentUser(); if (!u) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  const month = today.slice(0, 7);
+  const rows = load(K.register, []).filter(r => r.lawyer_id === u.id);
+  return {
+    today: rows.filter(r => r.notarization_date === today).length,
+    month: rows.filter(r => (r.notarization_date || '').startsWith(month)).length,
+    pendingDispatch: load(K.emails, []).filter(e => e.lawyer_id === u.id && e.status === 'queued').length,
+    auditCount: load(K.audit, []).filter(a => a.user_id === u.id).length
+  };
+}
+
+// ---- Email queue ----
+async function dbQueueEmail(input) {
+  const u = dbCurrentUser(); if (!u) throw new Error('Not authenticated');
+  const row = {
+    id: uid(), lawyer_id: u.id,
+    register_entry_id: input.register_entry_id || null,
+    recipient: input.recipient, cc: input.cc || null,
+    subject: input.subject, body: input.body,
+    attachment_path: input.attachment_path || null,
+    scheduled_send_time: input.scheduled_send_time || null,
+    sent_at: null, status: 'queued',
+    created_at: nowIso()
+  };
+  const all = load(K.emails, []);
+  all.push(row);
+  save(K.emails, all);
+  await dbLogAudit('email_queued', { recipient: input.recipient, register_entry_id: input.register_entry_id || null }, { type: 'email', id: row.id });
+  return row;
+}
+async function dbQueueEmails(items) { return Promise.all(items.map(dbQueueEmail)); }
+function dbListQueue() {
+  const u = dbCurrentUser(); if (!u) return [];
+  return load(K.emails, []).filter(e => e.lawyer_id === u.id)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
+}
+
+// ---- Audit ----
+async function dbLogAudit(action, metadata = {}, resource = {}) {
+  const u = dbCurrentUser(); if (!u) return;
+  const all = load(K.audit, []);
+  all.push({
+    id: uid(), user_id: u.id, action,
+    resource_type: resource.type || null,
+    resource_id: resource.id || null,
+    metadata, created_at: nowIso()
+  });
+  save(K.audit, all);
+}
+function dbListAudit() {
+  const u = dbCurrentUser(); if (!u) return [];
+  return load(K.audit, []).filter(a => a.user_id === u.id)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
+}
+
+// ---- helpers ----
+function tokenize(s) {
+  return (s || '').replace(/[^A-Za-z0-9\s]/g, '').split(/\s+/).filter(Boolean)
+    .map(w => w[0].toUpperCase() + w.slice(1)).join('');
+}
+function firstPrincipal(s) { return (s || '').split('/')[0].trim(); }
+function generateFilename(pattern, t) {
+  let out = pattern || '{date}_{type}_{principal}_Doc-{doc_no}.pdf';
+  for (const [k, v] of Object.entries(t)) out = out.replace(new RegExp('\\{' + k + '\\}', 'g'), String(v));
+  return out;
+}
+
+// ============================================================
+// OCR STUB — looks at filename for hints
+// ============================================================
+async function extractDocumentMetadata(file) {
+  await new Promise(r => setTimeout(r, 1500));
+  const name = (file?.name || '').toLowerCase();
+  const today = new Date().toISOString().slice(0, 10);
+  if (name.includes('deed') || name.includes('sale')) return {
+    document_type: 'Deed of Absolute Sale', notarial_act: 'Acknowledgment',
+    principal: 'Roberto C. Lim / Catherine D. Yu',
+    principal_email: 'rlim@example.ph', cc_emails: ['cyu@example.ph'],
+    notarization_date: today, fee: 1500
+  };
+  if (name.includes('spa') || name.includes('power') || name.includes('attorney')) return {
+    document_type: 'Special Power of Attorney', notarial_act: 'Acknowledgment',
+    principal: 'Eleanor M. Ramos',
+    principal_email: 'e.ramos@example.ph', cc_emails: [],
+    notarization_date: today, fee: 500
+  };
+  return {
+    document_type: 'Affidavit of Loss', notarial_act: 'Jurat',
+    principal: 'Maria S. dela Torre',
+    principal_email: 'm.delatorre@example.ph', cc_emails: [],
+    notarization_date: today, fee: 200
+  };
+}
+
+// ============================================================
+// APP
+// ============================================================
+const state = {
+  profile: null,
+  wizard: { file: null, document: null, extracted: null, createdEntry: null, dispatchPlan: null }
+};
+
+window.addEventListener('DOMContentLoaded', async () => {
+  bindHandlers();
+  if (dbCurrentUser()) await afterLogin();
+  else showScreen('login');
+});
+
+function bindHandlers() {
+  document.getElementById('btn-login').addEventListener('click', handleLogin);
+  document.getElementById('btn-signup').addEventListener('click', handleSignup);
+  document.getElementById('btn-quick-demo').addEventListener('click', handleQuickDemo);
+  document.getElementById('btn-show-signup').addEventListener('click', () => toggleAuth('signup'));
+  document.getElementById('btn-show-login').addEventListener('click', () => toggleAuth('login'));
+  document.getElementById('btn-signout').addEventListener('click', handleSignout);
+  document.getElementById('btn-reset').addEventListener('click', handleReset);
+  document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => setView(b.dataset.view)));
+  document.getElementById('file-input').addEventListener('change', onFileSelected);
+  document.querySelectorAll('[data-sample]').forEach(b => b.addEventListener('click', () => onSample(b.dataset.sample)));
+  document.querySelectorAll('[data-wiz-back]').forEach(b => b.addEventListener('click', () => goToStep(Number(b.dataset.wizBack))));
+  document.querySelectorAll('[data-wiz-next]').forEach(b => b.addEventListener('click', () => goToStep(Number(b.dataset.wizNext))));
+  document.getElementById('btn-commit-register').addEventListener('click', handleCommit);
+  document.getElementById('btn-send-now').addEventListener('click', () => handleDispatch('send'));
+  document.getElementById('btn-queue-batch').addEventListener('click', () => handleDispatch('queue'));
+  document.getElementById('btn-new-another').addEventListener('click', () => { resetWizard(); setView('new'); });
+  document.getElementById('btn-export-register').addEventListener('click', exportCsv);
+  document.getElementById('btn-save-settings').addEventListener('click', handleSaveSettings);
+  ['reg-search', 'reg-filter-type', 'reg-filter-month'].forEach(id =>
+    document.getElementById(id).addEventListener('input', renderRegister));
+}
+
+function showScreen(s) {
+  document.getElementById('screen-login').classList.toggle('hidden', s !== 'login');
+  document.getElementById('screen-app').classList.toggle('hidden', s !== 'app');
+}
+function toggleAuth(m) {
+  document.getElementById('auth-login').classList.toggle('hidden', m !== 'login');
+  document.getElementById('auth-signup').classList.toggle('hidden', m !== 'signup');
+}
+
+async function handleLogin() {
+  const errEl = document.getElementById('login-error'); errEl.textContent = '';
+  const email = document.getElementById('login-email').value.trim();
+  const pw = document.getElementById('login-password').value;
+  try { await dbSignIn(email, pw); await afterLogin(); }
+  catch (e) { errEl.textContent = e.message; }
+}
+async function handleSignup() {
+  const errEl = document.getElementById('signup-error'); errEl.textContent = '';
+  const name = document.getElementById('signup-name').value.trim();
+  const email = document.getElementById('signup-email').value.trim();
+  const pw = document.getElementById('signup-password').value;
+  if (!email || !pw) { errEl.textContent = 'Email and password required.'; return; }
+  try { await dbSignUp(email, pw, name); await afterLogin(); }
+  catch (e) { errEl.textContent = e.message; }
+}
+async function handleQuickDemo() {
+  // Idempotent: create demo lawyer if missing, then sign in
+  const email = 'atty.delacruz@delacruzlaw.ph';
+  const pw = 'demopass';
+  const users = load(K.users, []);
+  if (!users.some(u => u.email === email)) {
+    await dbSignUp(email, pw, 'Atty. Juan A. dela Cruz');
+    // Pre-populate a few sample profile fields
+    await dbUpdateProfile({
+      roll_number: '78421',
+      ibp_number: 'LM-014328',
+      jurisdiction: 'Pasig City — RTC NCJR',
+      ocs_email: 'ocs.pasigrtc@judiciary.gov.ph',
+      archive_email: 'archive@delacruzlaw.ph',
+      commission_expiry: '2027-12-31'
+    });
+  } else {
+    await dbSignIn(email, pw);
+  }
+  await afterLogin();
+}
+async function handleSignout() { await dbSignOut(); showScreen('login'); }
+function handleReset() {
+  if (!confirm('Erase all demo data (accounts, register entries, emails, audit log)?')) return;
+  Object.values(K).forEach(k => localStorage.removeItem(k));
+  toast('Demo data cleared.');
+  showScreen('login');
+  toggleAuth('login');
+}
+async function afterLogin() {
+  state.profile = dbCurrentProfile();
+  showScreen('app');
+  renderProfileChrome();
+  setView('dashboard');
+}
+
+function setView(v) {
+  document.querySelectorAll('.view').forEach(x => x.classList.add('hidden'));
+  document.getElementById('view-' + v)?.classList.remove('hidden');
+  document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active'));
+  document.querySelector(`[data-view="${v}"]`)?.classList.add('active');
+  if (v === 'dashboard') renderDashboard();
+  if (v === 'register') renderRegister();
+  if (v === 'outbox') renderOutbox();
+  if (v === 'audit') renderAudit();
+  if (v === 'new') resetWizard();
+  if (v === 'settings') renderSettings();
+  window.scrollTo({ top: 0, behavior: 'instant' });
+}
+
+function renderProfileChrome() {
+  const p = state.profile || {};
+  setText('profile-initials', initialsOf(p.full_name || p.email || '?'));
+  setText('profile-name', p.full_name || p.email || '');
+  setText('profile-meta', [p.roll_number ? 'Roll No. ' + p.roll_number : null, p.jurisdiction].filter(Boolean).join(' · ') || '—');
+}
+
+function renderDashboard() {
+  setText('today-date', new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }));
+  const first = (state.profile?.full_name || '').split(' ').pop() || 'Counsel';
+  setText('greeting', `Good day, Atty. ${first}.`);
+  const s = dbGetStats();
+  setText('kpi-today', s.today);
+  setText('kpi-month', s.month);
+  setText('kpi-pending', s.pendingDispatch);
+  setText('kpi-audit', s.auditCount);
+  updateOutboxBadge(s.pendingDispatch);
+
+  const rows = dbListEntries().slice(0, 5);
+  const ra = document.getElementById('recent-activity');
+  if (rows.length === 0) {
+    ra.innerHTML = `<div class="px-5 py-8 text-center text-sm text-ink-500">No notarizations yet. Click <strong>New Notarization</strong> to log your first entry.</div>`;
+  } else {
+    ra.innerHTML = rows.map(r => `
+      <div class="px-5 py-3 flex items-center gap-4 hover:bg-ink-50 transition">
+        <div class="w-9 h-9 rounded-lg bg-gold-50 text-gold-700 flex items-center justify-center font-mono text-xs">${pad3(r.doc_no)}</div>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-medium truncate">${esc(r.document_type)}</div>
+          <div class="text-xs text-ink-500 truncate">${esc(r.principal)} · ₱${Number(r.fee).toFixed(2)}</div>
+        </div>
+        <div class="text-xs text-ink-500">${r.notarization_date}</div>
+        ${pillForStatus(r.status)}
+      </div>
+    `).join('');
+  }
+}
+
+function pillForStatus(s) {
+  if (s === 'dispatched') return '<span class="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full font-medium">Sent</span>';
+  if (s === 'queued')     return '<span class="text-[10px] bg-gold-100 text-gold-700 px-2 py-1 rounded-full font-medium">Queued</span>';
+  return '<span class="text-[10px] bg-ink-100 text-ink-700 px-2 py-1 rounded-full font-medium">Logged</span>';
+}
+
+// Wizard
+function resetWizard() {
+  state.wizard = { file: null, document: null, extracted: null, createdEntry: null, dispatchPlan: null };
+  [1,2,3,4,5].forEach(n => document.getElementById('wiz-step-' + n)?.classList.add('hidden'));
+  document.getElementById('wiz-step-1')?.classList.remove('hidden');
+  setStepperState(1);
+  document.getElementById('file-input').value = '';
+}
+function setStepperState(active) {
+  [1,2,3,4].forEach(n => {
+    const dot = document.getElementById('step-dot-' + n);
+    const line = document.getElementById('step-line-' + n);
+    if (!dot) return;
+    dot.classList.remove('active','done'); if (line) line.classList.remove('done');
+    if (n < active) { dot.classList.add('done'); dot.innerHTML = '✓'; if (line) line.classList.add('done'); }
+    else if (n === active) { dot.classList.add('active'); dot.innerHTML = n; }
+    else { dot.innerHTML = n; }
+  });
+}
+
+async function onFileSelected(e) {
+  const f = e.target.files?.[0]; if (!f) return;
+  await runUploadAndExtract(f);
+}
+async function onSample(idx) {
+  const names = ['affidavit_of_loss.pdf', 'deed_of_sale.pdf', 'spa.pdf'];
+  const blob = new Blob([new Uint8Array([0x25,0x50,0x44,0x46,0x2D])], { type: 'application/pdf' });
+  const f = new File([blob], names[idx] || 'sample.pdf', { type: 'application/pdf' });
+  await runUploadAndExtract(f);
+}
+async function runUploadAndExtract(file) {
+  document.getElementById('wiz-step-1').classList.add('hidden');
+  document.getElementById('wiz-step-2').classList.remove('hidden');
+  setStepperState(2);
+  document.getElementById('pdf-scanning').classList.remove('hidden');
+  document.getElementById('pdf-rendered').classList.add('hidden');
+  state.wizard.file = file;
+  try {
+    const [up, ext] = await Promise.all([dbUploadPdf(file), extractDocumentMetadata(file)]);
+    state.wizard.document = up.document;
+    state.wizard.extracted = ext;
+    populateExtracted(ext);
+    document.getElementById('pdf-scanning').classList.add('hidden');
+    document.getElementById('pdf-rendered').classList.remove('hidden');
+    paintPreview(ext);
+  } catch (e) {
+    toast('Upload failed: ' + e.message);
+    resetWizard();
+  }
+}
+function populateExtracted(ex) {
+  setVal('ext-type', ex.document_type);
+  setVal('ext-act', ex.notarial_act);
+  setVal('ext-date', ex.notarization_date);
+  setVal('ext-fee', Number(ex.fee).toFixed(2));
+  const principals = ex.principal.split('/').map(p => p.trim()).filter(Boolean);
+  document.getElementById('ext-principals').innerHTML = principals.map((name, i) => `
+    <div class="bg-ink-50 rounded-lg p-3 border border-ink-100">
+      <div class="grid grid-cols-2 gap-2">
+        <input class="px-3 py-1.5 bg-white border border-ink-200 rounded-lg text-sm" value="${esc(name)}">
+        <input class="px-3 py-1.5 bg-white border border-ink-200 rounded-lg text-sm" value="${esc(i===0 ? ex.principal_email : (ex.cc_emails[i-1]||''))}">
+      </div>
+    </div>`).join('');
+  const emails = [ex.principal_email, ...(ex.cc_emails || []), state.profile?.ocs_email].filter(Boolean);
+  document.getElementById('ext-emails').innerHTML = emails.map(e =>
+    `<span class="text-xs bg-ink-100 text-ink-700 px-2 py-1 rounded-full">${esc(e)}</span>`).join('');
+}
+function paintPreview(ex) {
+  setText('prev-title', (ex.document_type || '').toUpperCase());
+  setText('prev-name', (ex.principal || '').toUpperCase());
+  setText('prev-email', ex.principal_email || '');
+  setText('prev-date', formatLong(ex.notarization_date));
+}
+async function handleCommit() {
+  const ex = state.wizard.extracted; if (!ex) return;
+  ex.document_type = readVal('ext-type', ex.document_type);
+  ex.notarial_act = readVal('ext-act', ex.notarial_act);
+  ex.notarization_date = readVal('ext-date', ex.notarization_date);
+  ex.fee = Number(readVal('ext-fee', ex.fee));
+  try {
+    const created = await dbCreateEntry({
+      document_type: ex.document_type, notarial_act: ex.notarial_act,
+      principal: ex.principal, principal_email: ex.principal_email,
+      notarization_date: ex.notarization_date, fee: ex.fee,
+      document_id: state.wizard.document?.id || null
+    });
+    state.profile = dbCurrentProfile();
+    state.wizard.createdEntry = created;
+    paintRegisterPreview(created);
+    paintDispatchEmails(created, ex);
+    goToStep(4);
+    toast(`Logged · Doc. No. ${pad3(created.doc_no)}`);
+  } catch (e) { toast('Insert failed: ' + e.message); }
+}
+function paintRegisterPreview(e) {
+  setText('reg-doc', pad3(e.doc_no));
+  setText('reg-page', e.page_no);
+  setText('reg-book', e.book_no);
+  setText('reg-series', e.series_year);
+  setText('reg-date', e.notarization_date);
+  setText('reg-principal', e.principal);
+  setText('reg-type', e.document_type);
+  setText('reg-fee-display', '₱' + Number(e.fee).toFixed(2));
+  setText('filename-preview', e.filename);
+}
+function paintDispatchEmails(entry, ex) {
+  const docNo = pad3(entry.doc_no);
+  const principals = entry.principal.split('/').map(p => p.trim()).filter(Boolean);
+  const recips = [ex.principal_email, ...(ex.cc_emails || [])].filter(Boolean);
+  const plan = principals.map((n, i) => ({
+    to: recips[i] || ex.principal_email,
+    who: n,
+    subject: `Notarized: ${entry.document_type} (Doc No. ${docNo}, Book ${entry.book_no})`,
+    body: `Dear ${n.split(' ')[0]},\n\nThank you for your visit today. Please find attached the duly notarized ${entry.document_type}.\n\nRegister entry: Doc. No. ${docNo}, Page No. ${entry.page_no}, Book No. ${entry.book_no}, Series of ${entry.series_year}.\n\nA courtesy copy has been CC'd to the Office of the Clerk of Court — ${state.profile?.jurisdiction || '[OCS]'}, in compliance with the 2004 Notarial Rules.\n\nVery truly yours,\n${state.profile?.full_name || 'Atty. ___'}\nNotary Public${state.profile?.roll_number ? ' · Roll No. ' + state.profile.roll_number : ''}`
+  }));
+  if (state.profile?.ocs_email) plan.push({
+    to: state.profile.ocs_email, who: 'Office of the Clerk of Court',
+    subject: `Notarial Submission: ${entry.document_type} (Doc No. ${docNo}, Book ${entry.book_no})`,
+    body: `To the Honorable Clerk of Court,\n\nGreetings. In compliance with my reportorial obligations as a notary public, I respectfully transmit the attached notarized document for your records:\n\nDocument: ${entry.document_type}\nPrincipal(s): ${entry.principal}\nDoc. No.: ${docNo}\nPage No.: ${entry.page_no}\nBook No.: ${entry.book_no}\nSeries of: ${entry.series_year}\nDate Notarized: ${entry.notarization_date}\n\nVery respectfully,\n${state.profile?.full_name || 'Atty. ___'}\nNotary Public${state.profile?.roll_number ? ' · Roll No. ' + state.profile.roll_number : ''}`
+  });
+  state.wizard.dispatchPlan = plan;
+  document.getElementById('dispatch-emails').innerHTML = plan.map((e, i) => `
+    <details class="border border-ink-100 rounded-lg" ${i===0?'open':''}>
+      <summary class="p-4 flex items-center gap-3">
+        <div class="w-8 h-8 rounded-full bg-ink-100 flex items-center justify-center text-xs font-medium text-ink-700">${initialsOf(e.who)}</div>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-medium truncate">${esc(e.subject)}</div>
+          <div class="text-xs text-ink-500 truncate">To: ${esc(e.to)}</div>
+        </div>
+        <span class="text-xs bg-gold-100 text-gold-700 px-2 py-1 rounded-full font-medium">Auto-drafted</span>
+      </summary>
+      <div class="px-4 pb-4 border-t border-ink-100 pt-3 text-sm">
+        <textarea data-email-body="${i}" class="w-full p-3 border border-ink-200 rounded-lg text-sm font-sans" rows="9">${esc(e.body)}</textarea>
+        <div class="flex items-center gap-2 mt-2 text-xs text-ink-500">Attached: <code>${esc(entry.filename)}</code></div>
+      </div>
+    </details>`).join('');
+}
+async function handleDispatch(mode) {
+  const entry = state.wizard.createdEntry; const plan = state.wizard.dispatchPlan;
+  if (!entry || !plan) return;
+  document.querySelectorAll('[data-email-body]').forEach(t => {
+    const i = Number(t.dataset.emailBody); if (plan[i]) plan[i].body = t.value;
+  });
+  const scheduled = mode === 'queue' ? batchTimeToday('17:00') : null;
+  try {
+    await dbQueueEmails(plan.map(p => ({
+      recipient: p.to, subject: p.subject, body: p.body,
+      attachment_path: state.wizard.document?.storage_path || null,
+      register_entry_id: entry.id, scheduled_send_time: scheduled
+    })));
+    setText('done-doc-no', `Doc. No. ${pad3(entry.doc_no)}, Page ${entry.page_no}, Book ${entry.book_no}, Series of ${entry.series_year}.`);
+    setText('done-summary', mode === 'send'
+      ? `${plan.length} email(s) queued for immediate dispatch.`
+      : `${plan.length} email(s) queued for batch dispatch at 5:00 PM today.`);
+    goToStep(5);
+    toast(mode === 'send' ? 'Queued for send.' : 'Queued for batch.');
+  } catch (e) { toast('Queue failed: ' + e.message); }
+}
+function goToStep(n) {
+  [1,2,3,4,5].forEach(i => document.getElementById('wiz-step-' + i)?.classList.add('hidden'));
+  document.getElementById('wiz-step-' + n)?.classList.remove('hidden');
+  setStepperState(n);
+}
+
+function renderRegister() {
+  const search = document.getElementById('reg-search')?.value || '';
+  const type = document.getElementById('reg-filter-type')?.value || '';
+  const month = document.getElementById('reg-filter-month')?.value || '';
+  const tbody = document.getElementById('register-tbody');
+  const rows = dbListEntries({ search, type, month });
+  if (rows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" class="text-center py-12 text-ink-500 text-sm">No entries match.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(r => `
+    <tr class="hover:bg-ink-50">
+      <td class="px-4 py-3 font-mono text-xs">${pad3(r.doc_no)}</td>
+      <td class="px-4 py-3 text-ink-600">${r.notarization_date}</td>
+      <td class="px-4 py-3">${esc(r.document_type)}</td>
+      <td class="px-4 py-3 text-ink-700">${esc(r.principal)}</td>
+      <td class="px-4 py-3 text-ink-500">${r.page_no}</td>
+      <td class="px-4 py-3 text-right font-medium">₱${Number(r.fee).toFixed(2)}</td>
+      <td class="px-4 py-3">${pillForStatus(r.status)}</td>
+      <td class="px-4 py-3 text-right"><span class="text-xs text-ink-400">${esc(r.book_no)} · ${r.series_year}</span></td>
+    </tr>`).join('');
+}
+
+function renderOutbox() {
+  const wrap = document.getElementById('outbox-list');
+  const rows = dbListQueue();
+  if (rows.length === 0) {
+    wrap.innerHTML = `<div class="bg-white border border-ink-100 rounded-xl p-8 text-center text-sm text-ink-500">No outbound emails yet.</div>`;
+    return;
+  }
+  wrap.innerHTML = rows.map(e => `
+    <div class="bg-white border border-ink-100 rounded-xl p-5">
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-lg bg-${e.status==='sent'?'emerald':'gold'}-100 text-${e.status==='sent'?'emerald':'gold'}-700 flex items-center justify-center text-xs font-semibold uppercase">${e.status[0]}</div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-baseline gap-2">
+            <div class="text-sm font-medium truncate">${esc(e.subject)}</div>
+            <span class="text-[10px] bg-${e.status==='sent'?'emerald':'gold'}-50 text-${e.status==='sent'?'emerald':'gold'}-700 px-2 py-0.5 rounded-full font-medium uppercase tracking-wider">${e.status}</span>
+          </div>
+          <div class="text-xs text-ink-500 mt-0.5">To: ${esc(e.recipient)}${e.cc ? ' · CC: ' + esc(e.cc) : ''}</div>
+          <div class="text-xs text-ink-400 mt-0.5">${new Date(e.created_at).toLocaleString()}${e.scheduled_send_time ? ' · scheduled ' + new Date(e.scheduled_send_time).toLocaleString() : ''}</div>
+          <details class="mt-3"><summary class="text-xs text-ink-600 hover:text-ink-900 cursor-pointer">View body</summary><pre class="text-xs text-ink-700 mt-2 bg-ink-50 p-3 rounded-lg whitespace-pre-wrap font-sans">${esc(e.body)}</pre></details>
+        </div>
+      </div>
+    </div>`).join('');
+}
+function updateOutboxBadge(n) {
+  const b = document.getElementById('outbox-badge');
+  if (n > 0) { b.textContent = n; b.classList.remove('hidden'); } else b.classList.add('hidden');
+}
+
+function renderAudit() {
+  const wrap = document.getElementById('audit-list');
+  const rows = dbListAudit();
+  if (rows.length === 0) {
+    wrap.innerHTML = `<div class="p-8 text-center text-sm text-ink-500">No audit events yet.</div>`;
+    return;
+  }
+  wrap.innerHTML = rows.map(r => {
+    const meta = Object.entries(r.metadata || {}).map(([k,v]) =>
+      `<span class="text-[10px] bg-ink-50 text-ink-700 px-1.5 py-0.5 rounded">${esc(k)}: ${esc(JSON.stringify(v))}</span>`).join(' ');
+    return `<div class="px-5 py-3 flex items-center gap-4">
+      <div class="text-[10px] uppercase tracking-wider font-semibold text-${actionColor(r.action)}-700 bg-${actionColor(r.action)}-50 px-2 py-1 rounded">${r.action}</div>
+      <div class="flex-1 min-w-0 flex items-center gap-2 flex-wrap">${meta || '<span class="text-xs text-ink-400">—</span>'}</div>
+      <div class="text-xs text-ink-500 whitespace-nowrap">${new Date(r.created_at).toLocaleString()}</div>
+    </div>`;
+  }).join('');
+}
+function actionColor(a) {
+  if (a.includes('login') || a.includes('signup')) return 'indigo';
+  if (a.includes('upload')) return 'blue';
+  if (a.includes('register')) return 'gold';
+  if (a.includes('email')) return 'emerald';
+  if (a.includes('logout')) return 'rose';
+  return 'ink';
+}
+
+function renderSettings() {
+  const p = state.profile || {};
+  setVal('s-full-name', p.full_name);
+  setVal('s-roll', p.roll_number);
+  setVal('s-ibp', p.ibp_number);
+  setVal('s-ptr', p.ptr_number);
+  setVal('s-mcle', p.mcle_number);
+  setVal('s-expiry', p.commission_expiry);
+  setVal('s-jurisdiction', p.jurisdiction);
+  setVal('s-ocs', p.ocs_email);
+  setVal('s-archive', p.archive_email);
+  setVal('s-pattern', p.filename_pattern);
+}
+async function handleSaveSettings() {
+  try {
+    state.profile = await dbUpdateProfile({
+      full_name: readVal('s-full-name', ''),
+      roll_number: readVal('s-roll', ''),
+      ibp_number: readVal('s-ibp', ''),
+      ptr_number: readVal('s-ptr', ''),
+      mcle_number: readVal('s-mcle', ''),
+      commission_expiry: readVal('s-expiry', '') || null,
+      jurisdiction: readVal('s-jurisdiction', ''),
+      ocs_email: readVal('s-ocs', ''),
+      archive_email: readVal('s-archive', ''),
+      filename_pattern: readVal('s-pattern', '')
+    });
+    renderProfileChrome();
+    toast('Settings saved.');
+  } catch (e) { toast('Save failed: ' + e.message); }
+}
+
+function exportCsv() {
+  const rows = dbListEntries();
+  if (rows.length === 0) { toast('No entries to export.'); return; }
+  const header = ['doc_no','page_no','book_no','series_year','notarization_date','document_type','notarial_act','principal','principal_email','fee','filename'];
+  const lines = [header.join(',')].concat(rows.map(r => header.map(h => csv(r[h])).join(',')));
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `eNotaryo-Register_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  toast('Register exported.');
+}
+function csv(v) { if (v == null) return ''; const s = String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s; }
+
+// ---------------- helpers ----------------
+function setText(id, v) { const el = document.getElementById(id); if (el) el.textContent = v ?? ''; }
+function setVal(id, v) { const el = document.getElementById(id); if (el) el.value = v ?? ''; }
+function readVal(id, fb) { const el = document.getElementById(id); return el ? el.value : fb; }
+function pad3(n) { return String(n).padStart(3, '0'); }
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function initialsOf(s) { return (s || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase(); }
+function formatLong(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+function batchTimeToday(hhmm) {
+  const [h, m] = (hhmm || '17:00').split(':').map(Number);
+  const d = new Date(); d.setHours(h, m, 0, 0); return d.toISOString();
+}
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+</script>
+</body>
+</html>
