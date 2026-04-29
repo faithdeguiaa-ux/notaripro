@@ -60,16 +60,39 @@ export async function extractDocumentMetadata(pdfFile, storagePath) {
 
 function normalize(raw) {
   const today = new Date().toISOString().slice(0, 10);
+  const dateOrEmpty = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
+  // jurat_date is the canonical "notarization_date" if not given separately
+  const jurat = dateOrEmpty(raw.jurat_date) || dateOrEmpty(raw.notarization_date) || '';
   return {
     document_type: String(raw.document_type || '').trim(),
     notarial_act: String(raw.notarial_act || 'Jurat').trim(),
+    summary: String(raw.summary || '').trim(),
+
     principal: String(raw.principal || '').trim(),
     principal_email: String(raw.principal_email || '').trim(),
-    cc_emails: Array.isArray(raw.cc_emails) ? raw.cc_emails.filter(Boolean) : [],
-    notarization_date: /^\d{4}-\d{2}-\d{2}$/.test(raw.notarization_date)
-      ? raw.notarization_date : today,
+    principal_address: String(raw.principal_address || '').trim(),
+    principal_civil_status: String(raw.principal_civil_status || '').trim(),
+    principal_profession: String(raw.principal_profession || '').trim(),
+    ibp_roll_number: String(raw.ibp_roll_number || '').trim(),
+
+    organization_name: String(raw.organization_name || '').trim(),
+    organization_address: String(raw.organization_address || '').trim(),
+
+    identity_reference: String(raw.identity_reference || '').trim(),
+
+    venue_province: String(raw.venue_province || '').trim(),
+    venue_city: String(raw.venue_city || '').trim(),
+    execution_date: dateOrEmpty(raw.execution_date),
+    execution_place: String(raw.execution_place || '').trim(),
+    jurat_date: jurat,
+    // notarization_date for legacy app code — defaults to jurat or today
+    notarization_date: jurat || today,
+
     fee: Number(raw.fee) || 0,
-    summary: raw.summary || ''
+    cc_emails: Array.isArray(raw.cc_emails) ? raw.cc_emails.filter(Boolean) : [],
+    missing_fields: Array.isArray(raw.missing_fields)
+      ? raw.missing_fields.filter(Boolean).map(String)
+      : []
   };
 }
 
@@ -77,17 +100,27 @@ async function stubExtract(pdfFile) {
   await new Promise(r => setTimeout(r, 1200));
   const name = (pdfFile?.name || '').toLowerCase();
   const today = new Date().toISOString().slice(0, 10);
+  const baseStub = (overrides) => ({
+    _stub: true,
+    document_type: '', notarial_act: 'Jurat', summary: '',
+    principal: '', principal_email: '', principal_address: '',
+    principal_civil_status: '', principal_profession: '', ibp_roll_number: '',
+    organization_name: '', organization_address: '',
+    identity_reference: '',
+    venue_province: '', venue_city: '',
+    execution_date: '', execution_place: '', jurat_date: today, notarization_date: today,
+    fee: 0, cc_emails: [], missing_fields: [],
+    ...overrides
+  });
   if (name.includes('deed') || name.includes('sale')) {
-    return { _stub: true, document_type: 'Deed of Absolute Sale', notarial_act: 'Acknowledgment',
+    return baseStub({ document_type: 'Deed of Absolute Sale', notarial_act: 'Acknowledgment',
       principal: 'Roberto C. Lim / Catherine D. Yu', principal_email: 'rlim@example.ph',
-      cc_emails: ['cyu@example.ph'], notarization_date: today, fee: 1500.00 };
+      cc_emails: ['cyu@example.ph'], fee: 1500.00 });
   }
   if (name.includes('spa') || name.includes('power') || name.includes('attorney')) {
-    return { _stub: true, document_type: 'Special Power of Attorney', notarial_act: 'Acknowledgment',
-      principal: 'Eleanor M. Ramos', principal_email: 'e.ramos@example.ph',
-      cc_emails: [], notarization_date: today, fee: 500.00 };
+    return baseStub({ document_type: 'Special Power of Attorney', notarial_act: 'Acknowledgment',
+      principal: 'Eleanor M. Ramos', principal_email: 'e.ramos@example.ph', fee: 500.00 });
   }
-  return { _stub: true, document_type: 'Affidavit of Loss', notarial_act: 'Jurat',
-    principal: 'Maria S. dela Torre', principal_email: 'm.delatorre@example.ph',
-    cc_emails: [], notarization_date: today, fee: 200.00 };
+  return baseStub({ document_type: 'Affidavit of Loss',
+    principal: 'Maria S. dela Torre', principal_email: 'm.delatorre@example.ph', fee: 200.00 });
 }

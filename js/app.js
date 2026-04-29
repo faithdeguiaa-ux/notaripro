@@ -345,45 +345,136 @@ async function runUploadAndExtract(file) {
 }
 
 function populateExtractedFields(ex) {
+  // Identification
   setVal('ext-type', ex.document_type);
   setVal('ext-act', ex.notarial_act);
-  setVal('ext-date', ex.notarization_date);
-  setVal('ext-fee', ex.fee.toFixed(2));
+  setVal('ext-fee', Number(ex.fee || 0).toFixed(2));
+  setVal('ext-summary', ex.summary || '');
 
+  // Affiant — auto-detect single vs multiple based on presence of " / "
   const pBox = document.getElementById('ext-principals');
   if (pBox) {
-    const principals = ex.principal.split('/').map(p => p.trim()).filter(Boolean);
-    pBox.innerHTML = principals.map((name, i) => `
+    const principals = (ex.principal || '').split('/').map(p => p.trim()).filter(Boolean);
+    const visible = principals.length > 0 ? principals : [''];
+    pBox.innerHTML = visible.map((name, i) => `
       <div class="bg-ink-50 rounded-lg p-3 border border-ink-100">
         <div class="grid grid-cols-2 gap-2">
-          <input class="px-3 py-1.5 bg-white border border-ink-200 rounded-lg text-sm" value="${escapeAttr(name)}">
-          <input class="px-3 py-1.5 bg-white border border-ink-200 rounded-lg text-sm" value="${escapeAttr(i === 0 ? ex.principal_email : (ex.cc_emails[i-1] || ''))}">
+          <input data-affiant-name="${i}" class="px-3 py-1.5 bg-white border border-ink-200 rounded-lg text-sm" placeholder="Full name" value="${escapeAttr(name)}">
+          <input data-affiant-email="${i}" class="px-3 py-1.5 bg-white border border-ink-200 rounded-lg text-sm" placeholder="Email (optional)" value="${escapeAttr(i === 0 ? (ex.principal_email || '') : (ex.cc_emails?.[i-1] || ''))}">
         </div>
       </div>
     `).join('');
   }
+  setVal('ext-principal-address', ex.principal_address || '');
+  setVal('ext-civil-status', ex.principal_civil_status || '');
+  setVal('ext-profession', ex.principal_profession || '');
+  setVal('ext-ibp-roll', ex.ibp_roll_number || '');
+  setVal('ext-identity', ex.identity_reference || '');
 
+  // Organization (auto-expand if any data present)
+  setVal('ext-org-name', ex.organization_name || '');
+  setVal('ext-org-address', ex.organization_address || '');
+  const orgSection = document.getElementById('ext-org-section');
+  const orgIndicator = document.getElementById('ext-org-indicator');
+  if (orgSection) {
+    const hasOrg = !!(ex.organization_name || ex.organization_address);
+    orgSection.open = hasOrg;
+    if (orgIndicator) orgIndicator.textContent = hasOrg
+      ? '— detected'
+      : '— click to expand if applicable';
+  }
+
+  // Venue & dates
+  setVal('ext-province', ex.venue_province || '');
+  setVal('ext-city', ex.venue_city || '');
+  setVal('ext-exec-date', ex.execution_date || '');
+  setVal('ext-exec-place', ex.execution_place || '');
+  setVal('ext-date', ex.jurat_date || ex.notarization_date || '');
+
+  // Source badge
+  const badge = document.getElementById('ext-source-badge');
+  const ocrMode = document.getElementById('ext-ocr-mode');
+  if (badge) {
+    badge.classList.remove('hidden');
+    if (ex._stub) {
+      badge.textContent = 'Demo OCR';
+      badge.className = 'text-[10px] uppercase tracking-wider font-semibold px-2.5 py-1 rounded shrink-0 bg-amber-100 text-amber-800';
+    } else {
+      badge.textContent = 'Live OCR';
+      badge.className = 'text-[10px] uppercase tracking-wider font-semibold px-2.5 py-1 rounded shrink-0 bg-emerald-100 text-emerald-800';
+    }
+  }
+  if (ocrMode) ocrMode.textContent = ex._stub ? 'demo OCR' : 'Claude Vision';
+
+  // Missing fields warning
+  const missingBanner = document.getElementById('ext-missing-banner');
+  const missingList = document.getElementById('ext-missing-list');
+  if (missingBanner && missingList) {
+    const missing = (ex.missing_fields || []).filter(Boolean);
+    if (missing.length > 0) {
+      missingList.textContent = missing.join(' · ');
+      missingBanner.classList.remove('hidden');
+    } else {
+      missingBanner.classList.add('hidden');
+    }
+  }
+
+  // Detected emails badge strip
   const eBox = document.getElementById('ext-emails');
+  const eEmpty = document.getElementById('ext-emails-empty');
+  const detected = [ex.principal_email, ...(ex.cc_emails || [])].filter(Boolean);
   if (eBox) {
-    const emails = [ex.principal_email, ...(ex.cc_emails || []), state.profile?.ocs_email].filter(Boolean);
-    eBox.innerHTML = emails.map(e => `<span class="text-xs bg-violet-50 text-violet-700 px-2 py-1 rounded-full font-medium">${escapeHtml(e)}</span>`).join('');
+    if (detected.length > 0) {
+      eEmpty?.classList.add('hidden');
+      eBox.innerHTML = detected.map(e => `<span class="text-xs bg-violet-50 text-violet-700 px-2 py-1 rounded-full font-medium">${escapeHtml(e)}</span>`).join('');
+    } else {
+      eBox.innerHTML = '';
+      eEmpty?.classList.remove('hidden');
+    }
   }
 }
 
 function paintPreview(ex) {
   setText('prev-title', (ex.document_type || '').toUpperCase());
   setText('prev-name', (ex.principal || '').toUpperCase());
-  setText('prev-email', ex.principal_email || '');
-  setText('prev-date', formatLong(ex.notarization_date));
+  const venueLine = [ex.venue_city, ex.venue_province && `Province of ${ex.venue_province}`].filter(Boolean).join(' · ');
+  setText('prev-venue', venueLine || 'REPUBLIC OF THE PHILIPPINES');
+  setText('prev-summary', ex.summary || '');
+  setText('prev-date', formatLong(ex.jurat_date || ex.notarization_date));
 }
 
 async function handleCommitRegister() {
   const ex = state.wizard.extracted;
   if (!ex) return;
+
+  // Pull edited principal name + email from the dynamic affiant rows
+  const affNames = Array.from(document.querySelectorAll('[data-affiant-name]'))
+    .map(el => el.value.trim()).filter(Boolean);
+  const affEmails = Array.from(document.querySelectorAll('[data-affiant-email]'))
+    .map(el => el.value.trim());
+  if (affNames.length > 0) {
+    ex.principal = affNames.join(' / ');
+    ex.principal_email = affEmails[0] || '';
+    ex.cc_emails = affEmails.slice(1).filter(Boolean);
+  }
+
   ex.document_type = readVal('ext-type', ex.document_type);
   ex.notarial_act = readVal('ext-act', ex.notarial_act);
-  ex.notarization_date = readVal('ext-date', ex.notarization_date);
+  ex.summary = readVal('ext-summary', ex.summary || '');
   ex.fee = Number(readVal('ext-fee', ex.fee));
+  ex.principal_address = readVal('ext-principal-address', ex.principal_address || '');
+  ex.principal_civil_status = readVal('ext-civil-status', ex.principal_civil_status || '');
+  ex.principal_profession = readVal('ext-profession', ex.principal_profession || '');
+  ex.ibp_roll_number = readVal('ext-ibp-roll', ex.ibp_roll_number || '');
+  ex.identity_reference = readVal('ext-identity', ex.identity_reference || '');
+  ex.organization_name = readVal('ext-org-name', ex.organization_name || '');
+  ex.organization_address = readVal('ext-org-address', ex.organization_address || '');
+  ex.venue_province = readVal('ext-province', ex.venue_province || '');
+  ex.venue_city = readVal('ext-city', ex.venue_city || '');
+  ex.execution_date = readVal('ext-exec-date', ex.execution_date || '') || null;
+  ex.execution_place = readVal('ext-exec-place', ex.execution_place || '');
+  ex.jurat_date = readVal('ext-date', ex.jurat_date || ex.notarization_date);
+  ex.notarization_date = ex.jurat_date || ex.notarization_date;
 
   try {
     const created = await createEntry({
@@ -393,7 +484,22 @@ async function handleCommitRegister() {
       principal_email: ex.principal_email,
       notarization_date: ex.notarization_date,
       fee: ex.fee,
-      document_id: state.wizard.document?.id || null
+      document_id: state.wizard.document?.id || null,
+      // rich metadata
+      summary: ex.summary,
+      principal_address: ex.principal_address,
+      principal_civil_status: ex.principal_civil_status,
+      principal_profession: ex.principal_profession,
+      ibp_roll_number: ex.ibp_roll_number,
+      identity_reference: ex.identity_reference,
+      organization_name: ex.organization_name,
+      organization_address: ex.organization_address,
+      venue_province: ex.venue_province,
+      venue_city: ex.venue_city,
+      execution_date: ex.execution_date,
+      execution_place: ex.execution_place,
+      jurat_date: ex.jurat_date,
+      missing_fields: ex.missing_fields || []
     });
     state.wizard.createdEntry = created;
     paintRegisterPreview(created);

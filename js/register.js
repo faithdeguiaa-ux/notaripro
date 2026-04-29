@@ -100,7 +100,22 @@ export async function createEntry(input) {
     notarization_date: input.notarization_date,
     fee: input.fee || 0,
     filename,
-    status: 'logged'
+    status: 'logged',
+    // v3 register-grade metadata (all optional; pass through what was extracted)
+    summary: input.summary || null,
+    principal_address: input.principal_address || null,
+    principal_civil_status: input.principal_civil_status || null,
+    principal_profession: input.principal_profession || null,
+    ibp_roll_number: input.ibp_roll_number || null,
+    identity_reference: input.identity_reference || null,
+    organization_name: input.organization_name || null,
+    organization_address: input.organization_address || null,
+    venue_province: input.venue_province || null,
+    venue_city: input.venue_city || null,
+    execution_date: input.execution_date || null,
+    execution_place: input.execution_place || null,
+    jurat_date: input.jurat_date || input.notarization_date || null,
+    missing_fields: input.missing_fields && input.missing_fields.length ? input.missing_fields : null
   };
 
   const { data: created, error: insErr } = await supabase

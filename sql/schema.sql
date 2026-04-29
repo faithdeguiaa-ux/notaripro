@@ -213,3 +213,26 @@ select
   sum(fee) as fees_total
 from public.register_entries
 group by lawyer_id, date_trunc('month', notarization_date)::date;
+
+-- ============================================================
+-- v3: register-grade extracted metadata (Claude Vision OCR fields)
+-- ============================================================
+
+alter table public.register_entries
+  add column if not exists venue_province text,
+  add column if not exists venue_city text,
+  add column if not exists execution_date date,
+  add column if not exists execution_place text,
+  add column if not exists jurat_date date,
+  add column if not exists principal_address text,
+  add column if not exists principal_civil_status text,
+  add column if not exists principal_profession text,
+  add column if not exists organization_name text,
+  add column if not exists organization_address text,
+  add column if not exists identity_reference text,
+  add column if not exists ibp_roll_number text,
+  add column if not exists summary text,
+  add column if not exists missing_fields text[];
+
+create index if not exists register_entries_org_idx
+  on public.register_entries(lawyer_id, organization_name);
