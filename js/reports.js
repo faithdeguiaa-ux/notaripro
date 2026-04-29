@@ -97,7 +97,7 @@ export async function generateMonthlyReport({ lawyer, periodStart, periodEnd, en
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  const affirmation = `I HEREBY CERTIFY that the above is a true and faithful record of all notarial acts performed by me during the stated period, in compliance with the 2004 Notarial Rules and the 2025 Rules on Electronic Notarization (A.M. No. 24-10-14-SC).`;
+  const affirmation = `I HEREBY CERTIFY that the above is a true and faithful record of all notarial acts performed by me during the stated period, in compliance with the 2004 Notarial Rules and the 2025 Amendments to the 2004 Rules on Notarial Practice (A.M. No. 02-8-13-SC).`;
   const split = doc.splitTextToSize(affirmation, PW - MARGIN * 2);
   doc.text(split, MARGIN, fy);
 

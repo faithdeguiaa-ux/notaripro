@@ -80,15 +80,26 @@ function bindStaticHandlers() {
   on('btn-queue-batch', 'click', () => handleDispatch('queue'));
   on('btn-new-another', 'click', () => { resetWizard(); setView('new'); });
 
-  // Register filters
-  ['reg-search', 'reg-filter-type', 'reg-filter-month'].forEach(id => {
+  // Register filters / sort / page size
+  ['reg-search', 'reg-sort', 'reg-page-size'].forEach(id => {
     on(id, 'input', () => renderRegister());
+    on(id, 'change', () => renderRegister());
   });
   on('btn-export-csv', 'click', handleExportCsv);
+
+  // Avatar upload
+  on('btn-avatar-upload', 'click', () => document.getElementById('avatar-file-input')?.click());
+  on('avatar-file-input', 'change', handleAvatarUpload);
   on('btn-monthly-report', 'click', handleMonthlyReport);
 
   // Outbox
   on('btn-send-all-queued', 'click', handleSendAllQueued);
+  document.querySelectorAll('[data-outbox-tab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.outboxTab = btn.dataset.outboxTab;
+      renderOutbox();
+    });
+  });
 
   // Audit
   on('audit-filter', 'input', () => renderAuditList());
@@ -101,6 +112,14 @@ function bindStaticHandlers() {
   on('btn-mfa-verify', 'click', handleMfaVerify);
   on('btn-mfa-cancel', 'click', () => showMfaPanel('not-enrolled'));
   on('btn-mfa-disable', 'click', handleMfaDisable);
+
+  // Verification gate
+  on('btn-open-verification', 'click', openVerificationView);
+  on('btn-submit-verification', 'click', handleSubmitVerification);
+
+  // DPA / data
+  on('btn-data-export', 'click', handleDataExport);
+  on('btn-account-delete', 'click', handleAccountDeleteRequest);
 }
 
 function on(id, evt, fn) {
@@ -137,12 +156,17 @@ async function handleSignup() {
   const fullName = document.getElementById('signup-name').value.trim();
   const email = document.getElementById('signup-email').value.trim();
   const password = document.getElementById('signup-password').value;
+  const dpaConsent = document.getElementById('signup-dpa-consent')?.checked || false;
   const errEl = document.getElementById('signup-error');
   errEl.textContent = '';
+  if (!dpaConsent) {
+    errEl.textContent = 'Please agree to the Privacy Notice and Terms of Service to continue.';
+    return;
+  }
   const btn = document.getElementById('btn-signup');
   btn.disabled = true; btn.textContent = 'Creating account…';
   try {
-    const { user, session } = await signUp(email, password, fullName);
+    const { user, session } = await signUp(email, password, fullName, dpaConsent);
     if (session) {
       await afterLogin();
     } else {
@@ -178,6 +202,15 @@ function showScreen(s) {
 }
 
 function setView(view) {
+  // Gate notarial actions behind verification
+  const isProtected = view === 'new';
+  const status = state.profile?.verification_status || 'unverified';
+  if (isProtected && status !== 'verified') {
+    toast('Verify your notarial commission first to unlock notarial actions.');
+    openVerificationView();
+    return;
+  }
+
   document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
   const target = document.getElementById('view-' + view);
   if (target) target.classList.remove('hidden');
@@ -191,6 +224,7 @@ function setView(view) {
   if (view === 'new') resetWizard();
   if (view === 'audit') renderAudit();
   if (view === 'settings') renderSettings();
+  if (view === 'verification') openVerificationView();
   window.scrollTo({ top: 0, behavior: 'instant' });
 }
 
@@ -200,6 +234,24 @@ function renderProfileChrome() {
   setText('profile-initials', initials || '—');
   setText('profile-name', p.full_name || p.email || '');
   setText('profile-meta', 'Notary Public');
+
+  // Dashboard avatar — the big circle next to the greeting
+  const avatarEl = document.getElementById('avatar-image');
+  if (avatarEl) {
+    if (p.avatar_path) {
+      const url = avatarUrl(p.avatar_path);
+      avatarEl.innerHTML = `<img src="${url}" alt="" class="w-full h-full object-cover">`;
+    } else {
+      avatarEl.textContent = initials || '—';
+    }
+  }
+}
+
+function avatarUrl(path) {
+  // Public bucket — direct CDN URL works
+  const cfg = window.SUPABASE_CONFIG || {};
+  const base = (cfg.url || '').replace(/\/$/, '');
+  return `${base}/storage/v1/object/public/avatars/${path}`;
 }
 
 // =============================================================
@@ -614,16 +666,39 @@ function goToStep(n) {
 // =============================================================
 async function renderRegister() {
   const search = document.getElementById('reg-search')?.value || '';
-  const type = document.getElementById('reg-filter-type')?.value || '';
-  const month = document.getElementById('reg-filter-month')?.value || '';
+  const sort = document.getElementById('reg-sort')?.value || 'date-desc';
+  const pageSize = Number(document.getElementById('reg-page-size')?.value || 50);
   const tbody = document.getElementById('register-tbody');
   const empty = document.getElementById('register-empty');
   const tableEl = tbody?.closest('table');
   const countEl = document.getElementById('register-count');
   if (!tbody) return;
   try {
-    const rows = await listEntries({ search, type, month });
-    state.cache.registerRows = rows;
+    let rows = await listEntries({ search });
+
+    // Sort client-side per chosen order
+    rows = [...rows].sort((a, b) => {
+      switch (sort) {
+        case 'date-asc':
+          return String(a.notarization_date).localeCompare(String(b.notarization_date)) ||
+                 (a.doc_no - b.doc_no);
+        case 'title-asc':
+          return String(a.document_type || '').localeCompare(String(b.document_type || ''));
+        case 'seq-asc':
+          return (a.doc_no - b.doc_no);
+        case 'seq-desc':
+          return (b.doc_no - a.doc_no);
+        case 'date-desc':
+        default:
+          return String(b.notarization_date).localeCompare(String(a.notarization_date)) ||
+                 (b.doc_no - a.doc_no);
+      }
+    });
+
+    state.cache.registerRowsAll = rows;
+    const visible = rows.slice(0, pageSize);
+    state.cache.registerRows = visible;
+
     if (rows.length === 0) {
       tbody.innerHTML = '';
       tableEl?.classList.add('hidden');
@@ -632,19 +707,24 @@ async function renderRegister() {
     } else {
       tableEl?.classList.remove('hidden');
       empty?.classList.add('hidden');
-      tbody.innerHTML = rows.map(r => `
+      tbody.innerHTML = visible.map(r => `
         <tr class="hover:bg-violet-50 transition">
           <td class="px-4 py-3 mono text-xs text-violet-700 font-semibold">${r.series_year}-${pad3(r.doc_no)}</td>
           <td class="px-4 py-3 text-ink-600">${formatShort(r.notarization_date)}</td>
-          <td class="px-4 py-3">${escapeHtml(r.document_type)}</td>
+          <td class="px-4 py-3">${escapeHtml(r.document_type || '')}</td>
+          <td class="px-4 py-3 text-ink-600">${escapeHtml(r.notarial_act || '—')}</td>
           <td class="px-4 py-3 text-ink-700">${escapeHtml(r.principal)}</td>
           <td class="px-4 py-3 text-ink-500">${r.page_no}</td>
-          <td class="px-4 py-3 text-right font-medium">₱${Number(r.fee).toFixed(2)}</td>
           <td class="px-4 py-3">${pillForStatus(r.status)}</td>
           <td class="px-4 py-3 text-right"><span class="text-xs text-ink-500">${escapeHtml(r.book_no)} · ${r.series_year}</span></td>
         </tr>
       `).join('');
-      if (countEl) countEl.textContent = `Showing ${rows.length} of ${rows.length} entries`;
+      if (countEl) {
+        const total = rows.length;
+        countEl.textContent = visible.length < total
+          ? `Showing ${visible.length} of ${total} entries`
+          : `Showing all ${total} ${total === 1 ? 'entry' : 'entries'}`;
+      }
     }
   } catch (e) {
     console.error(e);
@@ -653,25 +733,28 @@ async function renderRegister() {
 }
 
 function handleExportCsv() {
-  const rows = state.cache.registerRows || [];
+  // Always export ALL filtered rows, not just the current page-size slice.
+  const rows = state.cache.registerRowsAll || state.cache.registerRows || [];
   if (!rows.length) {
     toast('Nothing to export — register is empty.');
     return;
   }
-  const headers = ['Doc No.','Page','Book','Series','Date','Document Type','Notarial Act','Principal','Principal Email','Fee','Status','Filename'];
+  // NOTE: Fee column intentionally excluded from CSV export to limit BIR exposure.
+  // The notary still sees fees inside the app for their own bookkeeping.
+  const headers = ['Doc No.','Page','Book','Series','Date','Document Title','Notarial Act','Principal','Principal Email','Status','Filename'];
   const escapeCsv = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const lines = [headers.join(',')].concat(rows.map(r => [
     `${r.series_year}-${pad3(r.doc_no)}`, r.page_no, r.book_no, r.series_year,
     r.notarization_date, r.document_type, r.notarial_act, r.principal,
-    r.principal_email, r.fee, r.status, r.filename
+    r.principal_email, r.status, r.filename
   ].map(escapeCsv).join(',')));
   const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `JurisEasy-NotarialRegister-${new Date().toISOString().slice(0,10)}.csv`;
+  a.download = `NotariPro-NotarialRegister-${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  toast(`Exported ${rows.length} entries.`);
+  toast(`Exported ${rows.length} entries (fees excluded).`);
 }
 
 // =============================================================
@@ -682,9 +765,30 @@ async function renderOutbox() {
   const empty = document.getElementById('outbox-empty');
   const sendAll = document.getElementById('btn-send-all-queued');
   const queuedPill = document.getElementById('outbox-queued-pill');
+  const helper = document.getElementById('outbox-tab-help');
   if (!wrap) return;
+
+  // Tab state — default to client
+  if (!state.outboxTab) state.outboxTab = 'client';
+  document.querySelectorAll('[data-outbox-tab]').forEach(btn => {
+    const active = btn.dataset.outboxTab === state.outboxTab;
+    btn.className = 'outbox-tab flex-1 px-4 py-2 text-sm font-medium rounded-lg transition ' +
+      (active ? 'bg-white text-violet-700 shadow-sm' : 'text-ink-500 hover:text-ink-900');
+  });
+  if (helper) {
+    helper.textContent = state.outboxTab === 'client'
+      ? 'Per-entry emails to principals and parties. Sent immediately or queued for batch.'
+      : 'Monthly batched submissions to the Office of the Clerk of Court. The Smart-Batch engine (Tier 3) auto-splits attachments under the 25 MB limit.';
+  }
+
   try {
-    const rows = await listQueue();
+    const allRows = await listQueue();
+    // Filter client vs OCS by recipient match against profile.ocs_email
+    const ocsEmail = (state.profile?.ocs_email || '').toLowerCase();
+    const rows = allRows.filter(r => {
+      const isOcs = ocsEmail && r.recipient && r.recipient.toLowerCase() === ocsEmail;
+      return state.outboxTab === 'ocs' ? isOcs : !isOcs;
+    });
     state.cache.outboxRows = rows;
 
     if (rows.length === 0) {
@@ -894,15 +998,236 @@ function renderSettings() {
   const p = state.profile || {};
   setVal('s-full-name', p.full_name);
   setVal('s-roll', p.roll_number);
+  setVal('s-commission-no', p.notarial_commission_number);
   setVal('s-ibp', p.ibp_number);
   setVal('s-ptr', p.ptr_number);
   setVal('s-mcle', p.mcle_number);
-  setVal('s-expiry', p.commission_expiry);
+  setVal('s-comm-from', p.notarial_commission_validity_from);
+  setVal('s-expiry', p.commission_expiry || p.notarial_commission_validity_to);
   setVal('s-jurisdiction', p.jurisdiction);
   setVal('s-ocs', p.ocs_email);
   setVal('s-archive', p.archive_email);
   setVal('s-pattern', p.filename_pattern);
   refreshMfaStatus();
+  renderVerificationStatusCard();
+  renderSubscriptionCard();
+}
+
+function renderVerificationStatusCard() {
+  const card = document.getElementById('verification-status-card');
+  if (!card) return;
+  const p = state.profile || {};
+  const status = p.verification_status || 'unverified';
+  const icon = document.getElementById('verif-icon');
+  const title = document.getElementById('verif-title');
+  const detail = document.getElementById('verif-detail');
+  const btn = document.getElementById('btn-open-verification');
+  card.classList.remove('hidden');
+  if (status === 'verified') {
+    if (icon) { icon.className = 'w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-emerald-100 text-emerald-700'; icon.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>'; }
+    setText('verif-title', 'Notarial commission verified');
+    setText('verif-detail', `Reviewed ${p.verification_reviewed_at ? new Date(p.verification_reviewed_at).toLocaleDateString() : ''}. Roll No. ${p.roll_number || '—'} · ${p.jurisdiction || ''}`);
+    btn?.classList.add('hidden');
+  } else if (status === 'pending') {
+    if (icon) { icon.className = 'w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-amber-100 text-amber-700'; icon.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'; }
+    setText('verif-title', 'Verification pending review');
+    setText('verif-detail', `Submitted ${p.verification_submitted_at ? new Date(p.verification_submitted_at).toLocaleDateString() : ''}. We'll email you within 1 business day.`);
+    btn?.classList.add('hidden');
+  } else if (status === 'rejected') {
+    if (icon) { icon.className = 'w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-rose-100 text-rose-700'; icon.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>'; }
+    setText('verif-title', 'Verification not approved');
+    setText('verif-detail', p.verification_rejection_reason || 'Please resubmit with corrected documents.');
+    btn?.classList.remove('hidden');
+    btn?.classList.add('inline-flex');
+    btn.textContent = 'Resubmit';
+  } else {
+    // unverified
+    if (icon) { icon.className = 'w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-violet-100 text-violet-700'; icon.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>'; }
+    setText('verif-title', 'Verify your notarial commission');
+    setText('verif-detail', 'Upload your IBP/SC ID and Notarial Commission Order to unlock notarial actions. Manual review by our team within 1 business day.');
+    btn?.classList.remove('hidden');
+    btn.textContent = 'Submit for verification';
+  }
+}
+
+const VERIFICATION_BLOCKS_ACTIONS = true;
+
+function renderSubscriptionCard() {
+  const p = state.profile || {};
+  // Trial = 60 days from account creation. Real subscriptions table comes when pricing is set.
+  const created = p.created_at ? new Date(p.created_at) : new Date();
+  const trialEnd = new Date(created); trialEnd.setDate(trialEnd.getDate() + 60);
+  const today = new Date();
+  const remaining = Math.max(0, Math.ceil((trialEnd - today) / (1000 * 60 * 60 * 24)));
+  setText('sub-days-remaining', remaining);
+  setText('sub-trial-end', `Trial ends ${trialEnd.toLocaleDateString('en-PH', { dateStyle: 'medium' })}`);
+  setText('sub-plan-name', 'Free Beta');
+  setText('sub-plan-detail', '60 days · all features');
+  // Storage usage placeholder (real tracking comes with billing)
+  setText('sub-storage-used', `— / 1 GB`);
+  const bar = document.getElementById('sub-storage-bar');
+  if (bar) bar.style.width = '0%';
+}
+
+// =============================================================
+// 13. AVATAR UPLOAD
+// =============================================================
+async function handleAvatarUpload(e) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { toast('Avatar must be an image.'); return; }
+  if (file.size > 2 * 1024 * 1024) { toast('Avatar must be under 2 MB.'); return; }
+  toast('Uploading avatar…');
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const ext = (file.name.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const path = `${user.id}/avatar-${Date.now()}.${ext}`;
+    const { error: upErr } = await supabase.storage.from('avatars').upload(path, file, { upsert: true });
+    if (upErr) throw upErr;
+    state.profile = await updateProfile({ avatar_path: path });
+    renderProfileChrome();
+    toast('Avatar updated.');
+  } catch (e) {
+    toast('Upload failed: ' + (e.message || e));
+  }
+}
+
+// =============================================================
+// 14. VERIFICATION FLOW (manual review)
+// =============================================================
+async function openVerificationView() {
+  const p = state.profile || {};
+  setVal('v-roll', p.roll_number || '');
+  setVal('v-commission-no', p.notarial_commission_number || '');
+  setVal('v-jurisdiction', p.jurisdiction || '');
+  setVal('v-valid-from', p.notarial_commission_validity_from || '');
+  setVal('v-valid-to', p.notarial_commission_validity_to || p.commission_expiry || '');
+  setView('verification');
+
+  // Hook the file inputs to show selected name
+  const ibpFile = document.getElementById('v-ibp-file');
+  const ibpName = document.getElementById('v-ibp-name');
+  const commFile = document.getElementById('v-commission-file');
+  const commName = document.getElementById('v-commission-name');
+  if (ibpFile && !ibpFile._wired) {
+    ibpFile._wired = true;
+    ibpFile.parentElement.addEventListener('click', () => ibpFile.click());
+    ibpFile.addEventListener('change', () => { if (ibpFile.files[0]) ibpName.textContent = ibpFile.files[0].name; });
+  }
+  if (commFile && !commFile._wired) {
+    commFile._wired = true;
+    commFile.parentElement.addEventListener('click', () => commFile.click());
+    commFile.addEventListener('change', () => { if (commFile.files[0]) commName.textContent = commFile.files[0].name; });
+  }
+}
+
+async function handleSubmitVerification() {
+  const errEl = document.getElementById('v-error');
+  if (errEl) errEl.textContent = '';
+  const roll = readVal('v-roll', '').trim();
+  const commNo = readVal('v-commission-no', '').trim();
+  const juris = readVal('v-jurisdiction', '').trim();
+  const validFrom = readVal('v-valid-from', '').trim() || null;
+  const validTo = readVal('v-valid-to', '').trim() || null;
+  const ibpFile = document.getElementById('v-ibp-file')?.files?.[0];
+  const commFile = document.getElementById('v-commission-file')?.files?.[0];
+
+  if (!roll || !commNo || !juris || !validTo) {
+    if (errEl) errEl.textContent = 'Roll No., Commission No., Jurisdiction, and Validity To are required.';
+    return;
+  }
+  const btn = document.getElementById('btn-submit-verification');
+  btn.disabled = true; btn.textContent = 'Submitting…';
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const updates = {
+      roll_number: roll,
+      notarial_commission_number: commNo,
+      jurisdiction: juris,
+      notarial_commission_validity_from: validFrom,
+      notarial_commission_validity_to: validTo,
+      commission_expiry: validTo,
+      verification_status: 'pending',
+      verification_submitted_at: new Date().toISOString()
+    };
+
+    // Upload supporting documents if provided
+    if (ibpFile) {
+      const path = `${user.id}/ibp-${Date.now()}.${(ibpFile.name.split('.').pop() || 'jpg').toLowerCase()}`;
+      const { error } = await supabase.storage.from('verification-documents').upload(path, ibpFile, { upsert: true });
+      if (error) throw new Error('IBP upload failed: ' + error.message);
+      updates.ibp_id_doc_path = path;
+    }
+    if (commFile) {
+      const path = `${user.id}/commission-${Date.now()}.${(commFile.name.split('.').pop() || 'pdf').toLowerCase()}`;
+      const { error } = await supabase.storage.from('verification-documents').upload(path, commFile, { upsert: true });
+      if (error) throw new Error('Commission Order upload failed: ' + error.message);
+      updates.commission_doc_path = path;
+    }
+
+    state.profile = await updateProfile(updates);
+    await logAudit('verification_submitted', { roll, commission_no: commNo });
+    toast('Submitted! We\'ll review within 1 business day.');
+    setView('settings');
+  } catch (e) {
+    if (errEl) errEl.textContent = e.message || String(e);
+    if (e.message?.toLowerCase().includes('duplicate')) {
+      errEl.textContent = 'That Roll Number is already linked to another NotariPro account. If this is your account, please contact support@notaripro.app.';
+    }
+  } finally {
+    btn.disabled = false; btn.textContent = 'Submit for verification';
+  }
+}
+
+// =============================================================
+// 15. DATA EXPORT (DPA right to portability)
+// =============================================================
+async function handleDataExport() {
+  toast('Compiling your data…');
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const [profile, entries, emails, audits, reports] = await Promise.all([
+      supabase.from('lawyers').select('*').eq('id', user.id).single(),
+      supabase.from('register_entries').select('*'),
+      supabase.from('email_dispatch_queue').select('*'),
+      supabase.from('audit_logs').select('*'),
+      supabase.from('notarial_reports').select('*')
+    ]);
+    const archive = {
+      exported_at: new Date().toISOString(),
+      exported_for: user.email,
+      profile: profile.data,
+      register_entries: entries.data || [],
+      email_dispatch_queue: emails.data || [],
+      audit_logs: audits.data || [],
+      notarial_reports: reports.data || []
+    };
+    const blob = new Blob([JSON.stringify(archive, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `NotariPro-data-export-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    await logAudit('data_export', {});
+    toast('Exported.');
+  } catch (e) {
+    toast('Export failed: ' + (e.message || e));
+  }
+}
+
+async function handleAccountDeleteRequest() {
+  if (!confirm('Request account deletion? Your account will be marked for deletion. We will retain your notarial records as required by the Notarial Practice Rules and permanently delete after the retention period.')) return;
+  try {
+    state.profile = await updateProfile({ deletion_requested_at: new Date().toISOString() });
+    await logAudit('deletion_requested', {});
+    toast('Deletion request submitted. Our team will be in touch.');
+  } catch (e) {
+    toast('Request failed: ' + (e.message || e));
+  }
 }
 
 async function handleSaveSettings() {

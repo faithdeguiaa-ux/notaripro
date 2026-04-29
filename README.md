@@ -1,6 +1,6 @@
 # NotariPro
 
-Digital notary for Philippine lawyers, aligned with the Supreme Court's E-Notarization Rules (A.M. No. 24-10-14-SC).
+Digital notary for Philippine lawyers, aligned with the Supreme Court's 2025 Amendments to the 2004 Rules on Notarial Practice (A.M. No. 02-8-13-SC).
 
 Stack: HTML + Tailwind + vanilla JS · Supabase (Auth, Postgres, Storage) · Vercel.
 

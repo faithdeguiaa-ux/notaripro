@@ -11,7 +11,10 @@ export async function signIn(email, password) {
   return data;
 }
 
-export async function signUp(email, password, fullName) {
+export async function signUp(email, password, fullName, dpaConsent = false) {
+  if (!dpaConsent) {
+    throw new Error('You must agree to the Privacy Notice and Terms of Service to create an account.');
+  }
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -19,6 +22,18 @@ export async function signUp(email, password, fullName) {
   });
   if (error) throw error;
   // Profile row is created by the on_auth_user_created trigger.
+  // Stamp the DPA consent + ToS acceptance timestamp now (best-effort: trigger
+  // creates the row but we update the consent fields right after).
+  if (data?.user) {
+    const now = new Date().toISOString();
+    try {
+      await supabase.from('lawyers')
+        .update({ dpa_consent_at: now, tos_accepted_at: now })
+        .eq('id', data.user.id);
+    } catch (e) {
+      console.warn('[auth] consent stamp failed (non-fatal):', e?.message || e);
+    }
+  }
   await logAudit('signup', { email });
   return data;
 }

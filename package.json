@@ -2,7 +2,7 @@
   "name": "notaripro",
   "version": "0.3.0",
   "private": true,
-  "description": "NotariPro — Digital notary for Philippine lawyers (compliant with A.M. No. 24-10-14-SC).",
+  "description": "NotariPro — Digital notary for Philippine lawyers (compliant with A.M. No. 02-8-13-SC).",
   "scripts": {
     "build": "node scripts/build-config.js",
     "dev": "npx serve -l 3000 .",

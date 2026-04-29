@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Book a Demo — NotariPro</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = { theme: { extend: { colors: {
+    navy: { 900:'#1a0f4f' },
+    violet: { 50:'#f3eefb', 100:'#e3d8f7', 300:'#aa86e2', 500:'#6f43c4', 600:'#5a30a8', 700:'#46258a' },
+    ink: { 50:'#f7f7fb', 100:'#eeeef5', 200:'#d8d8e5', 500:'#5e5f7c', 700:'#34344a', 900:'#0f0f1f' }
+  }, fontFamily: { serif: ['"Source Serif 4"', 'Georgia', 'serif'], sans: ['Inter', 'system-ui'] }}}};
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:wght@600;700;700italic&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Inter', system-ui, sans-serif; }
+  .serif { font-family: 'Source Serif 4', Georgia, serif; }
+  .wordmark { font-family: 'Source Serif 4', Georgia, serif; font-weight: 700; }
+  .wordmark .pro { font-style: italic; font-weight: 700; color: #aa86e2; }
+  .hero-bg {
+    background: radial-gradient(circle at 70% 0%, #e3d8f7 0%, transparent 55%), #ffffff;
+  }
+</style>
+<script src="/js/config.js"></script>
+</head>
+<body class="bg-white text-ink-900">
+
+<header class="border-b border-ink-100">
+  <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+    <a href="/" class="flex items-center gap-2.5">
+      <div class="w-9 h-9">
+        <svg viewBox="0 0 96 96" class="w-full h-full" xmlns="http://www.w3.org/2000/svg" fill="none">
+          <circle cx="32" cy="14" r="3.2" fill="#6f43c4"/>
+          <path d="M18 26 Q16 24 18 22 L20 22 L24 70 L26 72 L28 70 L52 32 L52 70 L54 72 L56 70 L58 24 Q60 22 62 24" stroke="#6f43c4" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M16 84 Q40 78 64 84" stroke="#aa86e2" stroke-width="3.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="wordmark text-2xl leading-none">Notari<span class="pro">Pro</span></div>
+    </a>
+    <a href="/" class="text-sm text-ink-500 hover:text-ink-900">← Back to site</a>
+  </div>
+</header>
+
+<main class="hero-bg">
+  <div class="max-w-2xl mx-auto px-6 py-20">
+    <p class="text-xs uppercase tracking-[0.2em] text-violet-700 font-semibold">Book a demo</p>
+    <h1 class="serif text-4xl md:text-5xl mt-3">See NotariPro on your screen.</h1>
+    <p class="text-ink-500 mt-4 text-base">A 20-minute walkthrough of the wizard, register, dispatch flow, and the Monthly Notarial Report PDF — tailored to your practice. Pick a date that works and we'll email you to confirm a time.</p>
+
+    <div id="demo-success" class="hidden mt-10 bg-emerald-50 border border-emerald-200 rounded-xl p-6">
+      <div class="flex items-start gap-3">
+        <span class="w-8 h-8 rounded-lg bg-emerald-200 text-emerald-800 flex items-center justify-center shrink-0">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+        </span>
+        <div>
+          <h2 class="serif text-xl text-emerald-900">Booking received.</h2>
+          <p class="text-sm text-emerald-800 mt-1">We'll reply within one business day to confirm a time. Check your inbox for our reply (and your spam folder, just in case).</p>
+        </div>
+      </div>
+    </div>
+
+    <form id="demo-form" class="mt-10 bg-white border border-ink-100 rounded-xl p-7 space-y-5">
+      <div>
+        <label class="text-xs font-medium uppercase tracking-wider text-ink-700">Your work email</label>
+        <input id="demo-email" type="email" required placeholder="atty@yourfirm.ph" class="mt-1 w-full px-4 py-2.5 border border-ink-200 rounded-lg focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none">
+      </div>
+      <div>
+        <label class="text-xs font-medium uppercase tracking-wider text-ink-700">Preferred date</label>
+        <input id="demo-date" type="date" required class="mt-1 w-full px-4 py-2.5 border border-ink-200 rounded-lg focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none">
+        <p class="text-xs text-ink-500 mt-1">Pick a date next week or later. We'll suggest a couple of times around that day.</p>
+      </div>
+      <div>
+        <label class="text-xs font-medium uppercase tracking-wider text-ink-700">Anything you want us to focus on? <span class="normal-case text-ink-400">(optional)</span></label>
+        <textarea id="demo-notes" rows="3" placeholder="e.g. how the OCR handles SPAs, monthly OCS dispatch flow, etc." class="mt-1 w-full px-4 py-2.5 border border-ink-200 rounded-lg focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none"></textarea>
+      </div>
+      <p id="demo-error" class="text-xs text-rose-600 min-h-[1em]"></p>
+      <button type="submit" class="w-full bg-violet-600 hover:bg-violet-700 text-white font-medium py-3 rounded-lg transition">Request demo</button>
+    </form>
+  </div>
+</main>
+
+<footer class="border-t border-ink-100">
+  <div class="max-w-5xl mx-auto px-6 py-8 flex items-center justify-between flex-wrap gap-4 text-xs text-ink-500">
+    <span>&copy; 2026 NotariPro</span>
+    <div class="flex items-center gap-4">
+      <a href="/privacy" class="hover:text-ink-900">Privacy</a>
+      <a href="/terms" class="hover:text-ink-900">Terms</a>
+      <a href="/aup" class="hover:text-ink-900">Acceptable Use</a>
+      <a href="/" class="hover:text-ink-900">Home</a>
+    </div>
+  </div>
+</footer>
+
+<script type="module">
+  import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
+  const cfg = window.SUPABASE_CONFIG || {};
+  const supabase = createClient(cfg.url || '', cfg.anonKey || '');
+
+  // Constrain date input to today+ (no past dates)
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById('demo-date').min = today;
+
+  document.getElementById('demo-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errEl = document.getElementById('demo-error');
+    errEl.textContent = '';
+    const email = document.getElementById('demo-email').value.trim();
+    const date = document.getElementById('demo-date').value;
+    const notes = document.getElementById('demo-notes').value.trim();
+    if (!email || !date) { errEl.textContent = 'Email and preferred date are required.'; return; }
+    const btn = e.target.querySelector('button[type="submit"]');
+    btn.disabled = true; btn.textContent = 'Sending…';
+    try {
+      const { error } = await supabase.from('demo_bookings').insert({ email, preferred_date: date, notes: notes || null });
+      if (error) throw error;
+      document.getElementById('demo-form').classList.add('hidden');
+      document.getElementById('demo-success').classList.remove('hidden');
+    } catch (e2) {
+      errEl.textContent = 'Submit failed: ' + (e2.message || e2);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Request demo';
+    }
+  });
+</script>
+
+</body>
+</html>
