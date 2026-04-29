@@ -8,9 +8,11 @@ import {
 } from './auth.js';
 import { uploadPdf, getSignedUrl } from './storage.js';
 import { listEntries, createEntry, getEntryStats } from './register.js';
-import { queueEmails, listQueue, countQueued } from './emailQueue.js';
+import { queueEmails, listQueue, countQueued, sendOne, sendAllQueued } from './emailQueue.js';
 import { extractDocumentMetadata } from './ocr.js';
 import { logAudit, listAuditLogs } from './audit.js';
+import { generateMonthlyReport } from './reports.js';
+import { supabase } from './supabaseClient.js';
 
 // ----------------- App-level state -----------------
 const state = {
@@ -83,6 +85,7 @@ function bindStaticHandlers() {
     on(id, 'input', () => renderRegister());
   });
   on('btn-export-csv', 'click', handleExportCsv);
+  on('btn-monthly-report', 'click', handleMonthlyReport);
 
   // Outbox
   on('btn-send-all-queued', 'click', handleSendAllQueued);
@@ -92,6 +95,12 @@ function bindStaticHandlers() {
 
   // Settings
   on('btn-save-settings', 'click', handleSaveSettings);
+
+  // MFA
+  on('btn-mfa-enroll', 'click', handleMfaEnroll);
+  on('btn-mfa-verify', 'click', handleMfaVerify);
+  on('btn-mfa-cancel', 'click', () => showMfaPanel('not-enrolled'));
+  on('btn-mfa-disable', 'click', handleMfaDisable);
 }
 
 function on(id, evt, fn) {
@@ -156,6 +165,7 @@ async function afterLogin() {
   showScreen('app');
   state.profile = await getCurrentProfile();
   renderProfileChrome();
+  renderAlertBanner();
   setView('dashboard');
 }
 
@@ -211,6 +221,8 @@ async function renderDashboard() {
     setText('kpi-today', stats?.today ?? 0);
     setText('kpi-month', stats?.month ?? 0);
     setText('kpi-pending', stats?.pendingDispatch ?? 0);
+    state.cache.pendingDispatch = stats?.pendingDispatch ?? 0;
+    renderAlertBanner();
 
     const auditLogs = await listAuditLogs({ limit: 200 }).catch(() => []);
     state.cache.auditLogs = auditLogs;
@@ -307,17 +319,20 @@ async function runUploadAndExtract(file) {
   state.wizard.file = file;
 
   try {
-    const [uploadResult, extracted] = await Promise.all([
-      uploadPdf(file),
-      extractDocumentMetadata(file)
-    ]);
+    // Upload first so we have the storage path; THEN run OCR against the stored file.
+    const uploadResult = await uploadPdf(file);
     state.wizard.document = uploadResult.document;
     state.wizard.signedUrl = uploadResult.signedUrl;
+
+    const extracted = await extractDocumentMetadata(file, uploadResult.path);
     state.wizard.extracted = extracted;
     populateExtractedFields(extracted);
     document.getElementById('pdf-scanning').classList.add('hidden');
     document.getElementById('pdf-rendered').classList.remove('hidden');
     paintPreview(extracted);
+    if (extracted._stub) {
+      toast('OCR running in demo mode — add ANTHROPIC_API_KEY in Supabase to enable real extraction.');
+    }
   } catch (e) {
     console.error(e);
     toast('Upload or extraction failed: ' + (e.message || e));
@@ -619,33 +634,49 @@ async function renderOutbox() {
 }
 
 async function handleSendOne(id) {
-  // Without an external email provider wired up, "send" simulates marking dispatched.
-  toast('Marking as sent (external sender will be wired up next).');
+  toast('Sending…');
   try {
-    const { supabase } = await import('./supabaseClient.js');
-    await supabase.from('email_dispatch_queue')
-      .update({ status: 'sent', sent_at: new Date().toISOString() })
-      .eq('id', id);
+    const res = await sendOne(id);
+    if (res?.configured === false) {
+      toast('Email sender not configured. Add RESEND_API_KEY in Supabase secrets.');
+      return;
+    }
+    if (!res?.ok) {
+      toast('Send failed: ' + (res?.error || 'unknown error'));
+      return;
+    }
+    if (res.errored > 0) {
+      toast('Send failed — see error in the queue.');
+    } else {
+      toast('Email sent.');
+    }
     await renderOutbox();
     updateOutboxBadge(await countQueued());
   } catch (e) {
-    toast('Mark-as-sent failed: ' + (e.message || e));
+    toast('Send failed: ' + (e.message || e));
   }
 }
 
 async function handleSendAllQueued() {
   const queued = (state.cache.outboxRows || []).filter(r => r.status === 'queued');
   if (queued.length === 0) return;
-  if (!confirm(`Send all ${queued.length} queued email(s)? (Preview behavior: marks them dispatched in the queue.)`)) return;
+  if (!confirm(`Send all ${queued.length} queued email(s) now?`)) return;
+  toast('Sending…');
   try {
-    const { supabase } = await import('./supabaseClient.js');
-    const ids = queued.map(q => q.id);
-    await supabase.from('email_dispatch_queue')
-      .update({ status: 'sent', sent_at: new Date().toISOString() })
-      .in('id', ids);
+    const res = await sendAllQueued();
+    if (res?.configured === false) {
+      toast('Email sender not configured. Add RESEND_API_KEY in Supabase secrets.');
+      return;
+    }
+    if (!res?.ok) {
+      toast('Bulk send failed: ' + (res?.error || 'unknown error'));
+      return;
+    }
+    const sent = res.sent || 0;
+    const errored = res.errored || 0;
+    toast(`${sent} sent${errored ? `, ${errored} errored` : ''}.`);
     await renderOutbox();
     updateOutboxBadge(await countQueued());
-    toast(`Sent ${queued.length} email(s).`);
   } catch (e) {
     toast('Bulk send failed: ' + (e.message || e));
   }
@@ -761,6 +792,7 @@ function renderSettings() {
   setVal('s-ocs', p.ocs_email);
   setVal('s-archive', p.archive_email);
   setVal('s-pattern', p.filename_pattern);
+  refreshMfaStatus();
 }
 
 async function handleSaveSettings() {
@@ -782,6 +814,208 @@ async function handleSaveSettings() {
     toast('Settings saved.');
   } catch (e) {
     toast('Save failed: ' + (e.message || e));
+  }
+}
+
+// =============================================================
+// 10. MONTHLY NOTARIAL REPORT
+// =============================================================
+async function handleMonthlyReport() {
+  if (!state.profile) return;
+  const promptStart = prompt('Report period — START (YYYY-MM-DD):', firstOfMonth());
+  if (!promptStart) return;
+  const promptEnd = prompt('Report period — END (YYYY-MM-DD):', lastOfMonth());
+  if (!promptEnd) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(promptStart) || !/^\d{4}-\d{2}-\d{2}$/.test(promptEnd)) {
+    toast('Invalid date format. Use YYYY-MM-DD.');
+    return;
+  }
+  toast('Generating report…');
+  try {
+    const entries = await listEntries({ from: promptStart, to: promptEnd });
+    if (!entries || entries.length === 0) {
+      toast('No entries in that period — nothing to report.');
+      return;
+    }
+    const result = await generateMonthlyReport({
+      lawyer: state.profile,
+      periodStart: promptStart,
+      periodEnd: promptEnd,
+      entries
+    });
+    toast(`Generated · ${result.entryCount} entries · downloaded.`);
+  } catch (e) {
+    console.error(e);
+    toast('Report failed: ' + (e.message || e));
+  }
+}
+
+function firstOfMonth() {
+  const d = new Date(); d.setDate(1);
+  return d.toISOString().slice(0, 10);
+}
+function lastOfMonth() {
+  const d = new Date();
+  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  return last.toISOString().slice(0, 10);
+}
+
+// =============================================================
+// 11. DEADLINE / COMMISSION EXPIRY BANNER
+// =============================================================
+function renderAlertBanner() {
+  const banner = document.getElementById('alert-banner');
+  if (!banner) return;
+  const alerts = computeAlerts();
+  if (alerts.length === 0) {
+    banner.classList.add('hidden');
+    banner.innerHTML = '';
+    return;
+  }
+  const a = alerts[0]; // surface the most-urgent
+  const bg = a.severity === 'critical' ? 'bg-rose-50 border-rose-200 text-rose-900'
+           : a.severity === 'warn'     ? 'bg-amber-50 border-amber-200 text-amber-900'
+           :                              'bg-violet-50 border-violet-200 text-violet-900';
+  banner.className = `border-b ${bg}`;
+  banner.innerHTML = `
+    <div class="px-8 py-3 flex items-center gap-3">
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+      <div class="text-sm flex-1">${escapeHtml(a.message)}</div>
+      ${a.action ? `<button data-view="${a.action}" class="text-xs font-semibold underline underline-offset-2">${escapeHtml(a.actionLabel)}</button>` : ''}
+    </div>
+  `;
+  banner.querySelector('[data-view]')?.addEventListener('click', e => setView(e.currentTarget.dataset.view));
+  banner.classList.remove('hidden');
+}
+
+function computeAlerts() {
+  const out = [];
+  const p = state.profile || {};
+  // Commission expiry awareness
+  if (p.commission_expiry) {
+    const days = daysUntil(p.commission_expiry);
+    if (days !== null) {
+      if (days < 0) {
+        out.push({ severity: 'critical', message: `Your notarial commission expired ${Math.abs(days)} day(s) ago. Update your commission expiry in Settings.`, action: 'settings', actionLabel: 'Settings →' });
+      } else if (days <= 30) {
+        out.push({ severity: 'critical', message: `Your notarial commission expires in ${days} day(s). Renew with the Executive Judge before that date.`, action: 'settings', actionLabel: 'Settings →' });
+      } else if (days <= 60) {
+        out.push({ severity: 'warn', message: `Your notarial commission expires in ${days} day(s). Plan your renewal soon.`, action: 'settings', actionLabel: 'Settings →' });
+      }
+    }
+  } else {
+    out.push({ severity: 'info', message: 'Set your commission expiry in Settings so we can remind you before it lapses.', action: 'settings', actionLabel: 'Settings →' });
+  }
+  // Outbox queued reminder
+  const pending = state.cache.pendingDispatch || 0;
+  if (pending > 0) {
+    out.push({ severity: 'warn', message: `${pending} email(s) queued and waiting to be sent.`, action: 'outbox', actionLabel: 'Outbox →' });
+  }
+  // Sort: critical first, then warn, then info
+  const order = { critical: 0, warn: 1, info: 2 };
+  out.sort((a, b) => order[a.severity] - order[b.severity]);
+  return out;
+}
+
+function daysUntil(iso) {
+  if (!iso) return null;
+  const target = new Date(iso + 'T00:00:00');
+  if (isNaN(target.getTime())) return null;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  return Math.round((target - today) / (24 * 3600 * 1000));
+}
+
+// =============================================================
+// 12. MFA ENROLLMENT (TOTP)
+// =============================================================
+let mfaEnrollContext = null; // { factorId, secret, qr_code }
+
+async function refreshMfaStatus() {
+  const status = document.getElementById('mfa-status');
+  if (!status) return;
+  try {
+    const { data } = await supabase.auth.mfa.listFactors();
+    const verified = (data?.totp || []).find(f => f.status === 'verified');
+    if (verified) {
+      status.textContent = 'Enabled';
+      status.className = 'text-[10px] uppercase tracking-wider font-semibold px-2 py-1 rounded bg-emerald-100 text-emerald-700';
+      showMfaPanel('enrolled');
+    } else {
+      status.textContent = 'Not enabled';
+      status.className = 'text-[10px] uppercase tracking-wider font-semibold px-2 py-1 rounded bg-amber-100 text-amber-800';
+      showMfaPanel('not-enrolled');
+    }
+  } catch (e) {
+    status.textContent = 'Check failed';
+    status.className = 'text-[10px] uppercase tracking-wider font-semibold px-2 py-1 rounded bg-rose-100 text-rose-700';
+  }
+}
+
+function showMfaPanel(which) {
+  ['mfa-not-enrolled', 'mfa-enrolling', 'mfa-enrolled'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('hidden', !id.endsWith(which));
+  });
+}
+
+async function handleMfaEnroll() {
+  try {
+    // Clean up any prior unverified factors so we don't accumulate them
+    const { data: list } = await supabase.auth.mfa.listFactors();
+    for (const f of (list?.totp || [])) {
+      if (f.status !== 'verified') {
+        await supabase.auth.mfa.unenroll({ factorId: f.id }).catch(() => {});
+      }
+    }
+    const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'NotariPro TOTP' });
+    if (error) { toast('Enroll failed: ' + error.message); return; }
+    mfaEnrollContext = { factorId: data.id, secret: data.totp.secret, qr: data.totp.qr_code };
+    setText('mfa-secret', data.totp.secret);
+    const qrWrap = document.getElementById('mfa-qr-wrap');
+    if (qrWrap) qrWrap.innerHTML = `<img src="${data.totp.qr_code}" alt="MFA QR code" class="w-44 h-44">`;
+    showMfaPanel('enrolling');
+    setText('mfa-error', '');
+  } catch (e) {
+    toast('Enroll failed: ' + (e.message || e));
+  }
+}
+
+async function handleMfaVerify() {
+  if (!mfaEnrollContext) return;
+  const code = readVal('mfa-code', '').trim();
+  if (!/^\d{6}$/.test(code)) { setText('mfa-error', 'Enter the 6-digit code from your authenticator.'); return; }
+  setText('mfa-error', '');
+  try {
+    const { data: chal, error: chalErr } = await supabase.auth.mfa.challenge({ factorId: mfaEnrollContext.factorId });
+    if (chalErr) { setText('mfa-error', chalErr.message); return; }
+    const { error: vErr } = await supabase.auth.mfa.verify({
+      factorId: mfaEnrollContext.factorId,
+      challengeId: chal.id,
+      code
+    });
+    if (vErr) { setText('mfa-error', vErr.message); return; }
+    mfaEnrollContext = null;
+    toast('Two-factor authentication enabled.');
+    await logAudit('mfa_enabled', {});
+    await refreshMfaStatus();
+  } catch (e) {
+    setText('mfa-error', e.message || String(e));
+  }
+}
+
+async function handleMfaDisable() {
+  if (!confirm('Disable two-factor authentication on this account? Your login will fall back to email + password.')) return;
+  try {
+    const { data } = await supabase.auth.mfa.listFactors();
+    const verified = (data?.totp || []).find(f => f.status === 'verified');
+    if (!verified) { await refreshMfaStatus(); return; }
+    const { error } = await supabase.auth.mfa.unenroll({ factorId: verified.id });
+    if (error) { toast('Disable failed: ' + error.message); return; }
+    toast('Two-factor authentication disabled.');
+    await logAudit('mfa_disabled', {});
+    await refreshMfaStatus();
+  } catch (e) {
+    toast('Disable failed: ' + (e.message || e));
   }
 }
 

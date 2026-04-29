@@ -164,3 +164,52 @@ create trigger on_auth_user_created
 insert into storage.buckets (id, name, public)
 values ('notarial-documents', 'notarial-documents', false)
 on conflict (id) do nothing;
+
+-- ============================================================
+-- v2: compliance — document integrity, monthly reports, dispatch tracking
+-- (Idempotent: safe to re-run.)
+-- ============================================================
+
+-- 1. Document SHA-256 fingerprint (computed client-side at upload time)
+alter table public.documents
+  add column if not exists sha256 text;
+create index if not exists documents_lawyer_uploaded_idx
+  on public.documents(lawyer_id, uploaded_at desc);
+
+-- 2. Notarial reports (track when monthly/period reports were generated)
+create table if not exists public.notarial_reports (
+  id uuid primary key default gen_random_uuid(),
+  lawyer_id uuid not null references public.lawyers(id) on delete cascade,
+  period_start date not null,
+  period_end date not null,
+  entry_count integer not null default 0,
+  storage_path text,
+  generated_at timestamptz not null default now(),
+  unique (lawyer_id, period_start, period_end)
+);
+create index if not exists notarial_reports_lawyer_idx
+  on public.notarial_reports(lawyer_id, generated_at desc);
+
+alter table public.notarial_reports enable row level security;
+drop policy if exists "reports_select_own" on public.notarial_reports;
+create policy "reports_select_own" on public.notarial_reports
+  for select using (auth.uid() = lawyer_id);
+drop policy if exists "reports_insert_own" on public.notarial_reports;
+create policy "reports_insert_own" on public.notarial_reports
+  for insert with check (auth.uid() = lawyer_id);
+
+-- 3. Email dispatch tracking — provider message id, attempts
+alter table public.email_dispatch_queue
+  add column if not exists provider_message_id text,
+  add column if not exists attempts integer not null default 0,
+  add column if not exists last_attempt_at timestamptz;
+
+-- 4. Convenience view for monthly summaries
+create or replace view public.v_register_monthly as
+select
+  lawyer_id,
+  date_trunc('month', notarization_date)::date as month_start,
+  count(*) as entry_count,
+  sum(fee) as fees_total
+from public.register_entries
+group by lawyer_id, date_trunc('month', notarization_date)::date;

@@ -25,6 +25,9 @@ export async function listEntries(opts = {}) {
     const end = `${endY}-${String(endM).padStart(2, '0')}-01`;
     q = q.gte('notarization_date', start).lt('notarization_date', end);
   }
+  // Date-range filter (used by Monthly Report). Inclusive on both ends.
+  if (opts.from) q = q.gte('notarization_date', opts.from);
+  if (opts.to)   q = q.lte('notarization_date', opts.to);
 
   const { data, error } = await q;
   if (error) throw error;

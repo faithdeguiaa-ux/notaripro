@@ -1,22 +1,10 @@
 // /js/emailQueue.js
-// Persists outbound emails into email_dispatch_queue.
-// External email delivery is intentionally NOT implemented yet —
-// a future Supabase Edge Function or cron job will consume this queue.
+// Persists outbound emails into email_dispatch_queue and dispatches them
+// via the `dispatch-email` Supabase Edge Function (Resend).
 
 import { supabase } from './supabaseClient.js';
 import { logAudit } from './audit.js';
 
-/**
- * Enqueue a single outbound email.
- * @param {object} input
- * @param {string} input.recipient
- * @param {string} [input.cc]
- * @param {string} input.subject
- * @param {string} input.body
- * @param {string} [input.attachment_path]   storage path inside notarial-documents
- * @param {string} [input.register_entry_id] FK
- * @param {Date|string} [input.scheduled_send_time] ISO timestamp; null = ASAP
- */
 export async function queueEmail(input) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
@@ -48,9 +36,6 @@ export async function queueEmail(input) {
   return data;
 }
 
-/**
- * Enqueue many emails atomically (best-effort: parallel inserts).
- */
 export async function queueEmails(items) {
   return Promise.all(items.map(queueEmail));
 }
@@ -74,4 +59,27 @@ export async function countQueued() {
     .eq('status', 'queued');
   if (error) return 0;
   return count || 0;
+}
+
+/**
+ * Send a single queued email via the dispatch-email Edge Function.
+ * Returns { ok, sent, errored, configured }.
+ */
+export async function sendOne(id) {
+  const { data, error } = await supabase.functions.invoke('dispatch-email', {
+    body: { id }
+  });
+  if (error) return { ok: false, error: error.message, configured: true };
+  return data || { ok: false, error: 'No response from dispatch-email' };
+}
+
+/**
+ * Send all queued emails for the current user.
+ */
+export async function sendAllQueued() {
+  const { data, error } = await supabase.functions.invoke('dispatch-email', {
+    body: {}
+  });
+  if (error) return { ok: false, error: error.message, configured: true };
+  return data || { ok: false, error: 'No response from dispatch-email' };
 }
