@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>JurisEasy — Local Demo</title>
+<title>NotariPro — Local Demo</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   tailwind.config = {
@@ -29,8 +29,8 @@
   .serif { font-family: 'Source Serif 4', Georgia, serif; }
   /* Wordmark: Juris (bold serif) + Easy (italic violet) */
   .wordmark { font-family: 'Source Serif 4', Georgia, serif; font-weight: 700; }
-  .wordmark .easy { font-style: italic; font-weight: 700; color: #aa86e2; }
-  .wordmark.dark .easy { color: #cab1ee; }
+  .wordmark .pro, .wordmark .easy { font-style: italic; font-weight: 700; color: #aa86e2; }
+  .wordmark.dark .pro, .wordmark.dark .easy { color: #cab1ee; }
   /* Audit log badges (legacy demo had these; ensure they exist) */
   .evt-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
   .evt-notarize { background:#dbeafe; color:#1e40af; }
@@ -78,7 +78,7 @@
 <!-- Demo banner -->
 <div class="demo-banner text-xs px-4 py-2 flex items-center justify-between">
   <div class="flex items-center gap-2">
-    <span class="font-semibold uppercase tracking-wider">JurisEasy Local Demo</span>
+    <span class="font-semibold uppercase tracking-wider">NotariPro Local Demo</span>
     <span class="opacity-80">— data persists in this browser only. No server, no Supabase, no internet calls beyond fonts.</span>
   </div>
   <button id="btn-reset" class="text-violet-100 hover:text-white underline underline-offset-2">Reset demo data</button>
@@ -88,17 +88,16 @@
 <div id="screen-login" class="min-h-[calc(100vh-32px)] flex items-center justify-center px-4">
   <div class="max-w-md w-full">
     <div class="text-center mb-8">
-      <div class="mx-auto mb-4 w-16 h-16">
-        <svg viewBox="0 0 64 64" class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-          <rect x="0" y="0" width="64" height="64" rx="14" fill="#6f43c4"/>
-          <rect x="12" y="18" width="40" height="3" rx="1" fill="#cab1ee"/>
-          <rect x="12" y="44" width="40" height="3" rx="1" fill="#cab1ee"/>
-          <rect x="16" y="22" width="6" height="22" fill="#cab1ee"/>
-          <rect x="29" y="26" width="6" height="18" fill="#cab1ee"/>
-          <rect x="42" y="22" width="6" height="22" fill="#cab1ee"/>
-        </svg>
-      </div>
-      <div class="wordmark text-4xl text-ink-900 leading-none">Juris<span class="easy">Easy</span></div>
+      <div class="mx-auto mb-4 w-20 h-20"><svg viewBox="0 0 96 96" class="w-full h-full" xmlns="http://www.w3.org/2000/svg" fill="none">
+  <!-- Dot above -->
+  <circle cx="32" cy="14" r="3.2" fill="#6f43c4"/>
+  <!-- Cursive N: left descender, diagonal, right descender, with subtle terminal flourish -->
+  <path d="M18 26 Q16 24 18 22 L20 22 L24 70 L26 72 L28 70 L52 32 L52 70 L54 72 L56 70 L58 24 Q60 22 62 24"
+        stroke="#6f43c4" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round" />
+  <!-- Underline swoosh -->
+  <path d="M16 84 Q40 78 64 84" stroke="#aa86e2" stroke-width="3.5" stroke-linecap="round"/>
+</svg></div>
+      <div class="wordmark text-4xl text-ink-900 leading-none">Notari<span class="pro">Pro</span></div>
       <p class="text-[10px] tracking-[0.18em] uppercase text-violet-700 font-semibold mt-2">Digital Notary</p>
       <p class="text-ink-500 mt-2 text-sm">Compliant Electronic Notarization for Philippine Lawyers</p>
       <p class="text-xs text-ink-400 mt-1">Aligned with A.M. No. 24-10-14-SC · Rules on Electronic Notarization</p>
@@ -153,18 +152,14 @@
 
     <aside class="w-64 bg-navy-900 text-navy-200 flex flex-col">
       <div class="px-6 py-5 border-b border-navy-800 flex items-center gap-3">
-        <div class="w-10 h-10 shrink-0">
-          <svg viewBox="0 0 64 64" class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-            <rect x="0" y="0" width="64" height="64" rx="14" fill="#6f43c4"/>
-            <rect x="12" y="18" width="40" height="3" rx="1" fill="#cab1ee"/>
-            <rect x="12" y="44" width="40" height="3" rx="1" fill="#cab1ee"/>
-            <rect x="16" y="22" width="6" height="22" fill="#cab1ee"/>
-            <rect x="29" y="26" width="6" height="18" fill="#cab1ee"/>
-            <rect x="42" y="22" width="6" height="22" fill="#cab1ee"/>
-          </svg>
-        </div>
+        <div class="w-10 h-10 shrink-0"><svg viewBox="0 0 96 96" class="w-full h-full" xmlns="http://www.w3.org/2000/svg" fill="none">
+  <circle cx="32" cy="14" r="3.2" fill="#aa86e2"/>
+  <path d="M18 26 Q16 24 18 22 L20 22 L24 70 L26 72 L28 70 L52 32 L52 70 L54 72 L56 70 L58 24 Q60 22 62 24"
+        stroke="#aa86e2" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M16 84 Q40 78 64 84" stroke="#cab1ee" stroke-width="3.5" stroke-linecap="round"/>
+</svg></div>
         <div class="leading-tight">
-          <div class="wordmark dark text-xl text-white">Juris<span class="easy">Easy</span></div>
+          <div class="wordmark dark text-xl text-white">Notari<span class="pro">Pro</span></div>
           <div class="text-[9px] tracking-[0.16em] uppercase text-violet-300 font-semibold">Demo</div>
         </div>
       </div>
@@ -426,16 +421,15 @@
         </div>
 
         <div id="wiz-step-5" class="hidden bg-white rounded-xl border border-ink-100 p-12 text-center">
-          <div class="mx-auto mb-5 w-20 h-20">
-            <svg viewBox="0 0 64 64" class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-              <rect x="0" y="0" width="64" height="64" rx="14" fill="#6f43c4"/>
-              <rect x="12" y="18" width="40" height="3" rx="1" fill="#cab1ee"/>
-              <rect x="12" y="44" width="40" height="3" rx="1" fill="#cab1ee"/>
-              <rect x="16" y="22" width="6" height="22" fill="#cab1ee"/>
-              <rect x="29" y="26" width="6" height="18" fill="#cab1ee"/>
-              <rect x="42" y="22" width="6" height="22" fill="#cab1ee"/>
-            </svg>
-          </div>
+          <div class="mx-auto mb-5 w-24 h-24"><svg viewBox="0 0 96 96" class="w-full h-full" xmlns="http://www.w3.org/2000/svg" fill="none">
+  <!-- Dot above -->
+  <circle cx="32" cy="14" r="3.2" fill="#6f43c4"/>
+  <!-- Cursive N: left descender, diagonal, right descender, with subtle terminal flourish -->
+  <path d="M18 26 Q16 24 18 22 L20 22 L24 70 L26 72 L28 70 L52 32 L52 70 L54 72 L56 70 L58 24 Q60 22 62 24"
+        stroke="#6f43c4" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round" />
+  <!-- Underline swoosh -->
+  <path d="M16 84 Q40 78 64 84" stroke="#aa86e2" stroke-width="3.5" stroke-linecap="round"/>
+</svg></div>
           <h2 class="serif text-2xl mb-2">Notarization complete.</h2>
           <p class="text-ink-500 mb-1"><strong id="done-doc-no">—</strong></p>
           <p class="text-sm text-ink-500" id="done-summary">—</p>
@@ -532,7 +526,7 @@
 // ============================================================
 // LOCAL BACKEND — localStorage as the database
 // ============================================================
-const PFX = 'enotaryo:';
+const PFX = 'notaripro:';
 const K = {
   session: PFX + 'session',
   users: PFX + 'users',
@@ -1208,7 +1202,7 @@ function exportCsv() {
   const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `JurisEasy-Register_${new Date().toISOString().slice(0,10)}.csv`;
+  a.href = url; a.download = `NotariPro-Register_${new Date().toISOString().slice(0,10)}.csv`;
   document.body.appendChild(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
   toast('Register exported.');

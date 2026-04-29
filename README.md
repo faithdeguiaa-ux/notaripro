@@ -1,4 +1,4 @@
-# JurisEasy
+# NotariPro
 
 Digital notary for Philippine lawyers, aligned with the Supreme Court's E-Notarization Rules (A.M. No. 24-10-14-SC).
 
@@ -7,8 +7,9 @@ Stack: HTML + Tailwind + vanilla JS · Supabase (Auth, Postgres, Storage) · Ver
 ## File structure
 
 ```
-/index.html                     — app shell + UI (sidebar, 6 views)
-/JurisEasy-demo.html            — single-file offline demo (localStorage backend)
+/index.html                     — landing page (public)
+/app.html                       — app shell + UI (sidebar, 6 views, auth-gated)
+/NotariPro-demo.html            — single-file offline demo (localStorage backend)
 /js/
   app.js                        — orchestration, view routing, wizard, audit log
   auth.js                       — Supabase auth + lawyer profile
@@ -29,6 +30,14 @@ vercel.json
 .env.example
 .gitignore
 ```
+
+## Routing
+
+- `/` → `index.html` — public landing page
+- `/app` → `app.html` — auth-gated application (login + dashboard + register + outbox + audit + settings)
+- `/NotariPro-demo.html` — offline single-file demo (localStorage)
+
+Vercel serves clean URLs (`cleanUrls: true` in `vercel.json`), so `/app` resolves without the `.html` extension.
 
 ## Setup
 
@@ -57,16 +66,16 @@ npx serve .         # or: python3 -m http.server 3000
 
 ### 3. Offline demo (no Supabase needed)
 
-`JurisEasy-demo.html` is a single self-contained file with a localStorage-backed fake backend. Just double-click to open in a browser. Sign up creates a real (browser-local) account, and register entries / audit log persist across reloads. The banner "Reset demo data" button wipes state.
+`NotariPro-demo.html` is a single self-contained file with a localStorage-backed fake backend. Just double-click to open in a browser. Sign up creates a real (browser-local) account, and register entries / audit log persist across reloads. The banner "Reset demo data" button wipes state.
 
 ### 4. GitHub
 
 ```bash
 git init
 git add .
-git commit -m "Initial: JurisEasy"
+git commit -m "Initial: NotariPro"
 git branch -M main
-git remote add origin git@github.com:YOUR-ORG/juriseasy.git
+git remote add origin git@github.com:YOUR-ORG/notaripro.git
 git push -u origin main
 ```
 
@@ -106,7 +115,7 @@ git push -u origin main
 
 ## Brand
 
-JurisEasy uses a column-mark logo — three classical columns inside a rounded violet square — with the wordmark "Juris**Easy**" (Easy in italic violet). Color tokens live in the Tailwind config inside `index.html` and `JurisEasy-demo.html`:
+NotariPro uses a cursive-N "Signature Flow" logo — a flowing handwritten N with a violet dot above and a swoosh underline. The wordmark is "Notari**Pro**" with Pro in italic violet. Color tokens live in the Tailwind config inside `index.html` and `app.html`:
 
 - `navy-900` (#1a0f4f) — sidebar
 - `violet-500/600` (#6f43c4 / #5a30a8) — primary actions, accents
