@@ -38,11 +38,15 @@ export async function extractDocumentMetadata(pdfFile, storagePath) {
       if (data?.ok && data.extracted) {
         return normalize(data.extracted);
       }
-      // Function deployed but ANTHROPIC_API_KEY not set, OR a model error.
+      // Function deployed but ANTHROPIC_API_KEY not set, OR a model/auth error.
       if (data && data.configured === false) {
         console.info('[ocr-extract] not configured; using stub fallback.');
       } else {
         console.warn('[ocr-extract] non-ok response, using stub:', data);
+        // Surface the real error on the returned object so app.js can toast it.
+        const stub = await stubExtract(pdfFile);
+        stub._ocrError = data?.error || 'Unknown OCR error';
+        return stub;
       }
       return await stubExtract(pdfFile);
     } catch (e) {

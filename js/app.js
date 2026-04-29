@@ -331,7 +331,11 @@ async function runUploadAndExtract(file) {
     document.getElementById('pdf-rendered').classList.remove('hidden');
     paintPreview(extracted);
     if (extracted._stub) {
-      toast('OCR running in demo mode — add ANTHROPIC_API_KEY in Supabase to enable real extraction.');
+      if (extracted._ocrError) {
+        toast('OCR error — using sample data. Detail: ' + extracted._ocrError);
+      } else {
+        toast('OCR running in demo mode — add ANTHROPIC_API_KEY in Supabase to enable real extraction.');
+      }
     }
   } catch (e) {
     console.error(e);
